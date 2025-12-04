@@ -1,4 +1,7 @@
 {
   "ydToken": "0x0b7ef65f95b665dd55dff22e9cd1e5ef4d392e5b",
-  "courseMarketplace": "0x9cf9dead82a68ada14a91102bb260c0684c732e2"
+  "courseMarketplace": "0x9cf9dead82a68ada14a91102bb260c0684c732e2",
+  "aaveVault": "0x499e8dd7683c9e4d21492d1bd1fd632f2f5cefd0",
+  "ydSale": "0x6f96fe14390af5d5862f2e8b30c0689d473260e4",
+  "ydUsdtSwap": "0x8e86e472b3642a501b58c364c6dc001c2076a191"
 }

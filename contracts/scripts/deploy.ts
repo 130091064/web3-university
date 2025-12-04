@@ -23,7 +23,7 @@ async function main() {
 
   console.log("CourseMarketplace deployed to:", courseMarketplace.address);
 
-  // 3. 写入 deployments/{network}.json
+  // 3. 写入 deployments/sepolia.json
   const deploymentsDir = path.join(__dirname, "..", "deployments");
   if (!fs.existsSync(deploymentsDir)) {
     fs.mkdirSync(deploymentsDir, { recursive: true });

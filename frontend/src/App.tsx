@@ -1,16 +1,24 @@
 // src/App.tsx
-import React, { useEffect, useState } from 'react';
-import { useConnection, usePublicClient, useWriteContract } from 'wagmi';
-import { formatUnits, parseUnits } from 'viem';
+import React, { useEffect, useState } from "react";
+import { useConnection, usePublicClient, useWriteContract } from "wagmi";
+import { formatUnits, parseUnits } from "viem";
 
-import Header from './components/Header';
-import { WalletSection } from './components/WalletSection';
-import { CreateCourseForm } from './components/CreateCourseForm';
-import { CourseList } from './components/CourseList';
-import type { UICourse } from './components/CourseCard';
+import Header from "./components/Header";
+import { WalletSection } from "./components/WalletSection";
+import { CreateCourseForm } from "./components/CreateCourseForm";
+import { CourseList } from "./components/CourseList";
+import AaveVaultPanel from "./components/AaveVaultPanel";
+import type { UICourse } from "./components/CourseCard";
+import BuyYDPanel from "./components/BuyYDPanel";
+import SwapYDToUsdtPanel from "./components/SwapYDToUsdtPanel";
 
-import { useCourses } from './hooks/useCourses';
-import { YD_TOKEN_ADDRESS, COURSE_MARKETPLACE_ADDRESS, ydTokenAbi, courseMarketplaceAbi } from './contracts';
+import { useCourses } from "./hooks/useCourses";
+import {
+  YD_TOKEN_ADDRESS,
+  COURSE_MARKETPLACE_ADDRESS,
+  ydTokenAbi,
+  courseMarketplaceAbi,
+} from "./contracts";
 
 const App: React.FC = () => {
   // 钱包连接信息（和 Header 保持一致）
@@ -28,7 +36,7 @@ const App: React.FC = () => {
   const [uiCourses, setUiCourses] = useState<UICourse[]>([]);
 
   // YD 余额
-  const [ydBalance, setYdBalance] = useState<string>('0');
+  const [ydBalance, setYdBalance] = useState<string>("0");
 
   // 创建 / 购买 状态
   const [creating, setCreating] = useState(false);
@@ -37,7 +45,7 @@ const App: React.FC = () => {
   // 读取 YD 余额
   const fetchYdBalance = async () => {
     if (!publicClient || !address) {
-      setYdBalance('0');
+      setYdBalance("0");
       return;
     }
     try {
@@ -45,20 +53,20 @@ const App: React.FC = () => {
         publicClient.readContract({
           address: YD_TOKEN_ADDRESS,
           abi: ydTokenAbi,
-          functionName: 'balanceOf',
+          functionName: "balanceOf",
           args: [address],
         }) as Promise<bigint>,
         publicClient.readContract({
           address: YD_TOKEN_ADDRESS,
           abi: ydTokenAbi,
-          functionName: 'decimals',
+          functionName: "decimals",
         }) as Promise<number>,
       ]);
 
       setYdBalance(formatUnits(balanceRaw, decimals));
     } catch (err) {
-      console.error('fetchYdBalance error:', err);
-      setYdBalance('0');
+      console.error("fetchYdBalance error:", err);
+      setYdBalance("0");
     }
   };
 
@@ -74,7 +82,8 @@ const App: React.FC = () => {
           isActive: c.isActive,
           studentCount: undefined,
           createdAt: undefined,
-          isAuthor: !!address && c.author.toLowerCase() === address.toLowerCase(),
+          isAuthor:
+            !!address && c.author.toLowerCase() === address.toLowerCase(),
           hasPurchased: false,
         }))
       );
@@ -91,7 +100,7 @@ const App: React.FC = () => {
             hasPurchased = (await publicClient.readContract({
               address: COURSE_MARKETPLACE_ADDRESS,
               abi: courseMarketplaceAbi,
-              functionName: 'hasPurchased',
+              functionName: "hasPurchased",
               args: [address, c.id],
             })) as boolean;
           }
@@ -104,13 +113,14 @@ const App: React.FC = () => {
             isActive: c.isActive,
             studentCount: c.studentCount,
             createdAt: c.createdAt,
-            isAuthor: !!address && c.author.toLowerCase() === address.toLowerCase(),
+            isAuthor:
+              !!address && c.author.toLowerCase() === address.toLowerCase(),
             hasPurchased,
           });
         }
         setUiCourses(list);
       } catch (err) {
-        console.error('build uiCourses error:', err);
+        console.error("build uiCourses error:", err);
         // 出错就先退回到不含 hasPurchased 的简单列表
         setUiCourses(
           courses.map((c) => ({
@@ -121,7 +131,8 @@ const App: React.FC = () => {
             isActive: c.isActive,
             studentCount: c.studentCount,
             createdAt: c.createdAt,
-            isAuthor: !!address && c.author.toLowerCase() === address.toLowerCase(),
+            isAuthor:
+              !!address && c.author.toLowerCase() === address.toLowerCase(),
             hasPurchased: false,
           }))
         );
@@ -137,7 +148,7 @@ const App: React.FC = () => {
       fetchYdBalance();
       setReloadKey((k) => k + 1);
     } else {
-      setYdBalance('0');
+      setYdBalance("0");
       setUiCourses([]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -163,24 +174,24 @@ const App: React.FC = () => {
       const hash = await writeContractAsync({
         address: COURSE_MARKETPLACE_ADDRESS,
         abi: courseMarketplaceAbi,
-        functionName: 'createCourse',
+        functionName: "createCourse",
         args: [price, metadataURI],
       });
 
-      console.log('createCourse tx:', hash);
+      console.log("createCourse tx:", hash);
 
       await publicClient.waitForTransactionReceipt({
         hash,
         confirmations: 1,
       });
 
-      console.log('createCourse confirmed');
+      console.log("createCourse confirmed");
 
       // 刷新列表 & 余额
       await fetchYdBalance();
       setReloadKey((k) => k + 1);
     } catch (err) {
-      console.error('createCourse error:', err);
+      console.error("createCourse error:", err);
     } finally {
       setCreating(false);
     }
@@ -194,78 +205,94 @@ const App: React.FC = () => {
       setBuyingCourseId(courseId);
 
       const target = uiCourses.find((c) => c.id === courseId);
-      if (!target) throw new Error('Course not found in uiCourses');
+      if (!target) throw new Error("Course not found in uiCourses");
       const price = target.price;
 
       // 1. 检查 allowance 是否足够
       const allowance = (await publicClient.readContract({
         address: YD_TOKEN_ADDRESS,
         abi: ydTokenAbi,
-        functionName: 'allowance',
+        functionName: "allowance",
         args: [address, COURSE_MARKETPLACE_ADDRESS],
       })) as bigint;
 
-      console.log('current allowance:', allowance.toString());
+      console.log("current allowance:", allowance.toString());
 
       if (allowance < price) {
-        console.log('Allowance not enough, sending approve...');
+        console.log("Allowance not enough, sending approve...");
 
         const approveHash = await writeContractAsync({
           address: YD_TOKEN_ADDRESS,
           abi: ydTokenAbi,
-          functionName: 'approve',
+          functionName: "approve",
           args: [COURSE_MARKETPLACE_ADDRESS, price],
         });
 
-        console.log('approve tx:', approveHash);
+        console.log("approve tx:", approveHash);
 
         await publicClient.waitForTransactionReceipt({
           hash: approveHash,
           confirmations: 1,
         });
 
-        console.log('approve confirmed');
+        console.log("approve confirmed");
       } else {
-        console.log('Allowance sufficient, skip approve.');
+        console.log("Allowance sufficient, skip approve.");
       }
 
       // 2. 调用 buyCourse
       const buyHash = await writeContractAsync({
         address: COURSE_MARKETPLACE_ADDRESS,
         abi: courseMarketplaceAbi,
-        functionName: 'buyCourse',
+        functionName: "buyCourse",
         args: [courseId],
       });
 
-      console.log('buyCourse tx:', buyHash);
+      console.log("buyCourse tx:", buyHash);
 
       await publicClient.waitForTransactionReceipt({
         hash: buyHash,
         confirmations: 1,
       });
 
-      console.log('buyCourse confirmed');
+      console.log("buyCourse confirmed");
 
       await fetchYdBalance();
       setReloadKey((k) => k + 1);
     } catch (err) {
-      console.error('buyCourse error:', err);
+      console.error("buyCourse error:", err);
     } finally {
       setBuyingCourseId(undefined);
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-50">
+    <div className="min-h-screen bg-linear-to-br from-sky-50 via-blue-50 to-blue-100 text-slate-800">
       {/* 顶部 Header（你自己的组件） */}
       <Header />
 
-      <main className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-6 sm:px-6 lg:px-8">
+      <main className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-10 sm:px-6 lg:px-8">
         {/* 钱包 & 资产概览 */}
-        <WalletSection address={address} ydBalance={ydBalance} isConnected={isConnected} onRefresh={handleRefreshAll} />
+        <WalletSection
+          address={address}
+          ydBalance={ydBalance}
+          isConnected={isConnected}
+          onRefresh={handleRefreshAll}
+        />
+
+        <BuyYDPanel
+          onBuySuccess={() => {
+            // 购买成功后让全局 reloadKey + 1
+            setReloadKey((k) => k + 1);
+          }}
+        />
 
         {/* 创建课程区域 */}
-        <CreateCourseForm onCreate={handleCreateCourse} isCreating={creating} disabled={!isConnected} />
+        <CreateCourseForm
+          onCreate={handleCreateCourse}
+          isCreating={creating}
+          disabled={!isConnected}
+        />
 
         {/* 课程列表 */}
         <CourseList
@@ -277,7 +304,17 @@ const App: React.FC = () => {
         />
 
         {/* 错误提示 */}
-        {error && <p className="text-xs text-red-400">加载课程时发生错误：{error}</p>}
+        {error && (
+          <p className="text-xs text-rose-500">加载课程时发生错误：{error}</p>
+        )}
+
+        <SwapYDToUsdtPanel
+          onSwapSuccess={() => {
+            // 兑换成功后，你可以让上层去刷新钱包/金库信息（看你 reloadKey 的设计）
+          }}
+        />
+
+        <AaveVaultPanel />
       </main>
     </div>
   );

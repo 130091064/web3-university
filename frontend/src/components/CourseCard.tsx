@@ -54,16 +54,16 @@ export const CourseCard: React.FC<CourseCardProps> = ({
 
   if (!isActive) {
     statusText = "已下架";
-    statusColor = "bg-slate-100 text-slate-500";
+    statusColor = "bg-slate-100/90 text-slate-500";
   } else if (course.isAuthor) {
     statusText = "我是作者";
-    statusColor = "bg-amber-50 text-amber-700";
+    statusColor = "bg-gradient-to-r from-amber-50 to-orange-50 text-amber-700";
   } else if (course.hasPurchased) {
     statusText = "已购买";
-    statusColor = "bg-emerald-50 text-emerald-700";
+    statusColor = "bg-gradient-to-r from-emerald-50 to-teal-50 text-emerald-700";
   } else {
     statusText = "可购买";
-    statusColor = "bg-sky-50 text-sky-700";
+    statusColor = "bg-gradient-to-r from-sky-50 to-cyan-50 text-sky-700";
   }
 
   // 按钮文案 & 状态
@@ -78,7 +78,7 @@ export const CourseCard: React.FC<CourseCardProps> = ({
     isActive && !course.isAuthor && !course.hasPurchased && !disabled;
 
   return (
-    <div className="flex flex-col justify-between rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm">
+    <div className="flex flex-col justify-between rounded-2xl border border-transparent bg-gradient-to-br from-white via-sky-50 to-blue-100/60 p-5 shadow-2xl shadow-sky-100/80 ring-1 ring-sky-100/80">
       <div className="flex items-start justify-between gap-2">
         <div>
           <div className="flex items-center gap-2">
@@ -86,7 +86,7 @@ export const CourseCard: React.FC<CourseCardProps> = ({
               课程 #{id.toString()}
             </span>
             <span
-              className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${statusColor}`}
+              className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium shadow ${statusColor}`}
             >
               {statusText}
             </span>
@@ -117,7 +117,7 @@ export const CourseCard: React.FC<CourseCardProps> = ({
         </div>
 
         <div className="text-right">
-          <div className="text-sm font-semibold text-slate-800">
+          <div className="text-sm font-semibold text-slate-900">
             {formattedPrice} YD
           </div>
           {studentCount !== undefined && (
@@ -133,7 +133,7 @@ export const CourseCard: React.FC<CourseCardProps> = ({
           href={metadataURI}
           target="_blank"
           rel="noreferrer"
-          className="truncate text-xs text-sky-600 underline-offset-2 hover:underline"
+          className="truncate text-xs text-sky-600 underline-offset-2 hover:text-sky-700 hover:underline"
         >
           {metadataURI || "无 metadataURI"}
         </a>
@@ -141,7 +141,7 @@ export const CourseCard: React.FC<CourseCardProps> = ({
         <button
           disabled={!canBuy || buying}
           onClick={() => onBuy(id)}
-          className="rounded-xl bg-sky-500 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-sky-600 disabled:cursor-not-allowed disabled:bg-slate-300"
+          className="rounded-2xl bg-gradient-to-r from-sky-500 to-indigo-500 px-4 py-1.5 text-xs font-semibold text-white shadow-lg shadow-sky-200/70 transition hover:brightness-110 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:bg-none disabled:from-slate-200 disabled:to-slate-200 disabled:text-slate-500 disabled:shadow-none"
         >
           {buying ? "处理中..." : buttonLabel}
         </button>
