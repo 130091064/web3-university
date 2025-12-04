@@ -1,4 +1,10 @@
 import { network } from "hardhat";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 async function main() {
   const { viem } = await network.connect();
@@ -16,6 +22,23 @@ async function main() {
   ]);
 
   console.log("CourseMarketplace deployed to:", courseMarketplace.address);
+
+  // 3. 写入 deployments/{network}.json
+  const deploymentsDir = path.join(__dirname, "..", "deployments");
+  if (!fs.existsSync(deploymentsDir)) {
+    fs.mkdirSync(deploymentsDir, { recursive: true });
+  }
+
+  const deploymentsPath = path.join(deploymentsDir, 'sepolia.json');
+
+  const data = {
+    ydToken: ydToken.address as `0x${string}`,
+    courseMarketplace: courseMarketplace.address as `0x${string}`,
+  };
+
+  fs.writeFileSync(deploymentsPath, JSON.stringify(data, null, 2), "utf-8");
+  console.log(`\nSaved deployments to: ${deploymentsPath}`);
+  console.log(data);
 }
 
 main().catch((error) => {

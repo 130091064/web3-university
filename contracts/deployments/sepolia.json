@@ -1,5 +1,4 @@
 {
-  "network": "sepolia",
-  "ydToken": "0x5434499f29956fa9f8defc6473a6224c72b97eed",
-  "courseMarketplace": "0x6a13d6d5f11658b75aa129309f20275b1684f6f2"
+  "ydToken": "0x0b7ef65f95b665dd55dff22e9cd1e5ef4d392e5b",
+  "courseMarketplace": "0x9cf9dead82a68ada14a91102bb260c0684c732e2"
 }

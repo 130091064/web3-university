@@ -10,6 +10,8 @@ contract CourseMarketplace {
         uint256 price; // 以 YD 最小单位计价
         string metadataURI; // 课程详情的 URL/IPFS
         bool isActive;
+        uint256 studentCount;   // ⭐ 已购买人数（包含作者自己）
+        uint64 createdAt;       // ⭐ 创建时间戳
     }
 
     IERC20 public immutable ydToken;
@@ -17,6 +19,7 @@ contract CourseMarketplace {
 
     uint256 public nextCourseId;
     mapping(uint256 => Course) public courses;
+    // user => courseId => purchased?
     mapping(address => mapping(uint256 => bool)) public purchased;
 
     event CourseCreated(
@@ -65,8 +68,13 @@ contract CourseMarketplace {
             author: msg.sender,
             price: price,
             metadataURI: metadataURI,
-            isActive: true
+            isActive: true,
+            studentCount: 1,                 // ⭐ 作者默认算一个学员
+            createdAt: uint64(block.timestamp)
         });
+
+        // ⭐ 作者创建课程时，自动视为已购买
+        purchased[msg.sender][courseId] = true;
 
         emit CourseCreated(courseId, msg.sender, price, metadataURI);
         return courseId;
@@ -89,16 +97,20 @@ contract CourseMarketplace {
 
     // 用户用 YD 购买课程
     function buyCourse(uint256 courseId) external {
-        Course memory c = courses[courseId];
+        Course storage c = courses[courseId];
         require(c.id != 0, "Course not found");
         require(c.isActive, "Course not active");
         require(!purchased[msg.sender][courseId], "Already purchased");
+
+        // ⭐ 作者不能再购买自己的课程（前端可据此隐藏按钮）
+        require(msg.sender != c.author, "Author cannot buy own course");
 
         // 从用户钱包把 YD 转给作者
         bool ok = ydToken.transferFrom(msg.sender, c.author, c.price);
         require(ok, "YD transfer failed");
 
         purchased[msg.sender][courseId] = true;
+        c.studentCount += 1; // ⭐ 学员数 +1
 
         emit CoursePurchased(courseId, msg.sender, c.price);
     }

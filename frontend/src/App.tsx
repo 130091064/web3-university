@@ -1,318 +1,286 @@
 // src/App.tsx
-import React, { useEffect, useState } from "react";
-import { formatEther } from "viem";
-import { useConnection, usePublicClient, useWriteContract } from "wagmi";
+import React, { useEffect, useState } from 'react';
+import { useConnection, usePublicClient, useWriteContract } from 'wagmi';
+import { formatUnits, parseUnits } from 'viem';
 
-import Header from "./components/Header";
-import {
-  COURSE_MARKETPLACE_ADDRESS,
-  YD_TOKEN_ADDRESS,
-  courseMarketplaceAbi,
-  ydTokenAbi,
-} from "./contracts";
-import { useCourses, type Course } from "./hooks/useCourses";
+import Header from './components/Header';
+import { WalletSection } from './components/WalletSection';
+import { CreateCourseForm } from './components/CreateCourseForm';
+import { CourseList } from './components/CourseList';
+import type { UICourse } from './components/CourseCard';
+
+import { useCourses } from './hooks/useCourses';
+import { YD_TOKEN_ADDRESS, COURSE_MARKETPLACE_ADDRESS, ydTokenAbi, courseMarketplaceAbi } from './contracts';
 
 const App: React.FC = () => {
-  const { courses, loading, error } = useCourses();
+  // 钱包连接信息（和 Header 保持一致）
+  const { address, isConnected } = useConnection();
+  const publicClient = usePublicClient();
+
+  // wagmi 写操作（同一个 writeContractAsync 用在 approve / createCourse / buyCourse）
+  const { writeContractAsync } = useWriteContract();
+
+  // 基础课程数据（来自自定义 hook）
+  const [reloadKey, setReloadKey] = useState(0);
+  const { courses, loading, error } = useCourses(reloadKey);
+
+  // UI 用课程：带 isAuthor / hasPurchased
+  const [uiCourses, setUiCourses] = useState<UICourse[]>([]);
+
+  // YD 余额
+  const [ydBalance, setYdBalance] = useState<string>('0');
+
+  // 创建 / 购买 状态
+  const [creating, setCreating] = useState(false);
+  const [buyingCourseId, setBuyingCourseId] = useState<bigint | undefined>();
+
+  // 读取 YD 余额
+  const fetchYdBalance = async () => {
+    if (!publicClient || !address) {
+      setYdBalance('0');
+      return;
+    }
+    try {
+      const [balanceRaw, decimals] = await Promise.all([
+        publicClient.readContract({
+          address: YD_TOKEN_ADDRESS,
+          abi: ydTokenAbi,
+          functionName: 'balanceOf',
+          args: [address],
+        }) as Promise<bigint>,
+        publicClient.readContract({
+          address: YD_TOKEN_ADDRESS,
+          abi: ydTokenAbi,
+          functionName: 'decimals',
+        }) as Promise<number>,
+      ]);
+
+      setYdBalance(formatUnits(balanceRaw, decimals));
+    } catch (err) {
+      console.error('fetchYdBalance error:', err);
+      setYdBalance('0');
+    }
+  };
+
+  // 根据基础 courses + 当前 address，补充 isAuthor / hasPurchased
+  useEffect(() => {
+    if (!publicClient || !courses.length) {
+      setUiCourses(
+        courses.map((c) => ({
+          id: c.id,
+          author: c.author,
+          price: c.price,
+          metadataURI: c.metadataURI,
+          isActive: c.isActive,
+          studentCount: undefined,
+          createdAt: undefined,
+          isAuthor: !!address && c.author.toLowerCase() === address.toLowerCase(),
+          hasPurchased: false,
+        }))
+      );
+      return;
+    }
+
+    const loadStates = async () => {
+      try {
+        const list: UICourse[] = [];
+        for (const c of courses) {
+          let hasPurchased = false;
+
+          if (address) {
+            hasPurchased = (await publicClient.readContract({
+              address: COURSE_MARKETPLACE_ADDRESS,
+              abi: courseMarketplaceAbi,
+              functionName: 'hasPurchased',
+              args: [address, c.id],
+            })) as boolean;
+          }
+
+          list.push({
+            id: c.id,
+            author: c.author,
+            price: c.price,
+            metadataURI: c.metadataURI,
+            isActive: c.isActive,
+            studentCount: c.studentCount,
+            createdAt: c.createdAt,
+            isAuthor: !!address && c.author.toLowerCase() === address.toLowerCase(),
+            hasPurchased,
+          });
+        }
+        setUiCourses(list);
+      } catch (err) {
+        console.error('build uiCourses error:', err);
+        // 出错就先退回到不含 hasPurchased 的简单列表
+        setUiCourses(
+          courses.map((c) => ({
+            id: c.id,
+            author: c.author,
+            price: c.price,
+            metadataURI: c.metadataURI,
+            isActive: c.isActive,
+            studentCount: c.studentCount,
+            createdAt: c.createdAt,
+            isAuthor: !!address && c.author.toLowerCase() === address.toLowerCase(),
+            hasPurchased: false,
+          }))
+        );
+      }
+    };
+
+    loadStates();
+  }, [publicClient, courses, address]);
+
+  // 连接状态变化时刷新一次
+  useEffect(() => {
+    if (isConnected) {
+      fetchYdBalance();
+      setReloadKey((k) => k + 1);
+    } else {
+      setYdBalance('0');
+      setUiCourses([]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isConnected, address]);
+
+  // 手动刷新按钮
+  const handleRefreshAll = () => {
+    fetchYdBalance();
+    setReloadKey((k) => k + 1);
+  };
+
+  // 创建课程（把用户输入的“整数 YD”转成 18 位精度）
+  const handleCreateCourse = async (priceStr: string, metadataURI: string) => {
+    if (!isConnected || !address || !publicClient) return;
+    if (!priceStr || !metadataURI) return;
+
+    try {
+      setCreating(true);
+
+      // 用户输入的是 “100 YD” 这种整数，我们按 18 位精度转成最小单位
+      const price = parseUnits(priceStr, 18);
+
+      const hash = await writeContractAsync({
+        address: COURSE_MARKETPLACE_ADDRESS,
+        abi: courseMarketplaceAbi,
+        functionName: 'createCourse',
+        args: [price, metadataURI],
+      });
+
+      console.log('createCourse tx:', hash);
+
+      await publicClient.waitForTransactionReceipt({
+        hash,
+        confirmations: 1,
+      });
+
+      console.log('createCourse confirmed');
+
+      // 刷新列表 & 余额
+      await fetchYdBalance();
+      setReloadKey((k) => k + 1);
+    } catch (err) {
+      console.error('createCourse error:', err);
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  // 购买课程（含 YD approve 流程）
+  const handleBuyCourse = async (courseId: bigint) => {
+    if (!isConnected || !address || !publicClient) return;
+
+    try {
+      setBuyingCourseId(courseId);
+
+      const target = uiCourses.find((c) => c.id === courseId);
+      if (!target) throw new Error('Course not found in uiCourses');
+      const price = target.price;
+
+      // 1. 检查 allowance 是否足够
+      const allowance = (await publicClient.readContract({
+        address: YD_TOKEN_ADDRESS,
+        abi: ydTokenAbi,
+        functionName: 'allowance',
+        args: [address, COURSE_MARKETPLACE_ADDRESS],
+      })) as bigint;
+
+      console.log('current allowance:', allowance.toString());
+
+      if (allowance < price) {
+        console.log('Allowance not enough, sending approve...');
+
+        const approveHash = await writeContractAsync({
+          address: YD_TOKEN_ADDRESS,
+          abi: ydTokenAbi,
+          functionName: 'approve',
+          args: [COURSE_MARKETPLACE_ADDRESS, price],
+        });
+
+        console.log('approve tx:', approveHash);
+
+        await publicClient.waitForTransactionReceipt({
+          hash: approveHash,
+          confirmations: 1,
+        });
+
+        console.log('approve confirmed');
+      } else {
+        console.log('Allowance sufficient, skip approve.');
+      }
+
+      // 2. 调用 buyCourse
+      const buyHash = await writeContractAsync({
+        address: COURSE_MARKETPLACE_ADDRESS,
+        abi: courseMarketplaceAbi,
+        functionName: 'buyCourse',
+        args: [courseId],
+      });
+
+      console.log('buyCourse tx:', buyHash);
+
+      await publicClient.waitForTransactionReceipt({
+        hash: buyHash,
+        confirmations: 1,
+      });
+
+      console.log('buyCourse confirmed');
+
+      await fetchYdBalance();
+      setReloadKey((k) => k + 1);
+    } catch (err) {
+      console.error('buyCourse error:', err);
+    } finally {
+      setBuyingCourseId(undefined);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-50">
-      <div className="mx-auto flex min-h-screen max-w-6xl flex-col px-4 pb-10 pt-4 md:px-8">
-        {/* 顶部导航 / 钱包区 */}
-        <Header />
+      {/* 顶部 Header（你自己的组件） */}
+      <Header />
 
-        <main className="mt-6 flex flex-1 flex-col gap-8">
-          {/* Hero / 概览 */}
-          <Hero coursesCount={courses.length} />
+      <main className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-6 sm:px-6 lg:px-8">
+        {/* 钱包 & 资产概览 */}
+        <WalletSection address={address} ydBalance={ydBalance} isConnected={isConnected} onRefresh={handleRefreshAll} />
 
-          {/* 课程列表 */}
-          <CourseSection courses={courses} loading={loading} error={error} />
-        </main>
-      </div>
+        {/* 创建课程区域 */}
+        <CreateCourseForm onCreate={handleCreateCourse} isCreating={creating} disabled={!isConnected} />
+
+        {/* 课程列表 */}
+        <CourseList
+          courses={uiCourses}
+          onBuy={handleBuyCourse}
+          buyingCourseId={buyingCourseId}
+          disabled={!isConnected}
+          loading={loading}
+        />
+
+        {/* 错误提示 */}
+        {error && <p className="text-xs text-red-400">加载课程时发生错误：{error}</p>}
+      </main>
     </div>
   );
 };
 
 export default App;
-
-// ---------- Hero ----------
-
-const Hero: React.FC<{ coursesCount: number }> = ({ coursesCount }) => {
-  return (
-    <section className="rounded-3xl border border-white/10 bg-gradient-to-br from-emerald-500/10 via-slate-900/80 to-indigo-500/10 p-6 shadow-2xl shadow-black/50 md:p-8">
-      <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
-        <div className="max-w-xl space-y-3">
-          <div className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-300">
-            WEB3 大学
-          </div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-50 md:text-3xl">
-            课程平台 · Sepolia
-          </h1>
-          <p className="text-sm leading-relaxed text-slate-300/80 md:text-[15px]">
-            链上课程上架、购买与学习的统一入口。连接钱包即可探索 Web3
-            开发、智能合约与区块链应用的最新内容， 实时跟进行业趋势。
-          </p>
-        </div>
-
-        <div className="grid w-full max-w-xs grid-cols-3 gap-3 text-xs md:text-sm">
-          <InfoCard label="网络" value="Sepolia" />
-          <InfoCard label="支付代币" value="YD" />
-          <InfoCard label="课程数量" value={coursesCount.toString()} />
-        </div>
-      </div>
-    </section>
-  );
-};
-
-const InfoCard: React.FC<{ label: string; value: string }> = ({
-  label,
-  value,
-}) => (
-  <div className="rounded-2xl border border-white/10 bg-slate-900/80 px-3 py-3 text-center shadow-lg shadow-black/40">
-    <div className="text-[10px] uppercase tracking-[0.18em] text-slate-400">
-      {label}
-    </div>
-    <div className="mt-1 text-sm font-semibold text-slate-50 md:text-base">
-      {value}
-    </div>
-  </div>
-);
-
-// ---------- Course Section / List ----------
-
-type CourseListProps = {
-  courses: Course[];
-  loading: boolean;
-  error: string | null;
-};
-
-const CourseSection: React.FC<CourseListProps> = ({
-  courses,
-  loading,
-  error,
-}) => (
-  <section className="space-y-4">
-    <div className="flex items-center justify-between">
-      <h2 className="text-lg font-semibold text-slate-50 md:text-xl">
-        课程列表
-      </h2>
-      <p className="text-xs text-slate-400">
-        使用 YD 代币购买课程，链上记录你的学习足迹。
-      </p>
-    </div>
-
-    <CourseList courses={courses} loading={loading} error={error} />
-  </section>
-);
-
-const CourseList: React.FC<CourseListProps> = ({ courses, loading, error }) => {
-  const { status, address } = useConnection();
-  const isConnected = status === "connected" && !!address;
-
-  const publicClient = usePublicClient();
-  const { writeContractAsync } = useWriteContract();
-
-  const [pendingCourseId, setPendingCourseId] = useState<bigint | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
-
-  // 记录“当前地址是否已经购买某课程”
-  const [purchasedMap, setPurchasedMap] = useState<Record<string, boolean>>({});
-
-  // 读取已购状态
-  useEffect(() => {
-    if (!publicClient || !address || !courses.length) return;
-
-    let cancelled = false;
-
-    const loadPurchased = async () => {
-      const next: Record<string, boolean> = {};
-
-      for (const course of courses) {
-        try {
-          const purchased = (await publicClient.readContract({
-            address: COURSE_MARKETPLACE_ADDRESS,
-            abi: courseMarketplaceAbi,
-            functionName: "hasPurchased",
-            args: [address, course.id],
-          })) as boolean;
-
-          next[course.id.toString()] = purchased;
-        } catch (e) {
-          console.error("load hasPurchased error", e);
-        }
-      }
-
-      if (!cancelled) setPurchasedMap(next);
-    };
-
-    loadPurchased();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [publicClient, address, courses]);
-
-  const handleBuy = async (course: Course) => {
-    if (!isConnected || !address || !publicClient) {
-      setMessage("请先连接钱包");
-      return;
-    }
-
-    // 已购买就不再发交易，直接提示
-    if (purchasedMap[course.id.toString()]) {
-      setMessage("你已经购买过这门课程啦");
-      return;
-    }
-
-    try {
-      setMessage(null);
-      setPendingCourseId(course.id);
-
-      // 1. allowance
-      const allowance = (await publicClient.readContract({
-        address: YD_TOKEN_ADDRESS,
-        abi: ydTokenAbi,
-        functionName: "allowance",
-        args: [address, COURSE_MARKETPLACE_ADDRESS],
-      })) as bigint;
-
-      // 2. 不足则 approve
-      if (allowance < course.price) {
-        setMessage("正在授权 YD 代币...");
-        const approveHash = await writeContractAsync({
-          address: YD_TOKEN_ADDRESS,
-          abi: ydTokenAbi,
-          functionName: "approve",
-          args: [COURSE_MARKETPLACE_ADDRESS, course.price],
-        });
-
-        await publicClient.waitForTransactionReceipt({ hash: approveHash });
-      }
-
-      // 3. buyCourse
-      setMessage("正在购买课程...");
-      const buyHash = await writeContractAsync({
-        address: COURSE_MARKETPLACE_ADDRESS,
-        abi: courseMarketplaceAbi,
-        functionName: "buyCourse",
-        args: [course.id],
-      });
-
-      await publicClient.waitForTransactionReceipt({ hash: buyHash });
-
-      // 更新本地已购状态
-      setPurchasedMap((prev) => ({
-        ...prev,
-        [course.id.toString()]: true,
-      }));
-
-      setMessage("购买成功 ✅");
-    } catch (err: any) {
-      console.error(err);
-      const msg = err?.shortMessage || err?.message || "购买失败";
-
-      if (msg.includes("Already purchased")) {
-        setPurchasedMap((prev) => ({
-          ...prev,
-          [course.id.toString()]: true,
-        }));
-        setMessage("你已经购买过这门课程啦");
-      } else {
-        setMessage(msg);
-      }
-    } finally {
-      setPendingCourseId(null);
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-6 text-sm text-slate-300">
-        课程加载中...
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="rounded-2xl border border-rose-500/40 bg-rose-950/40 p-6 text-sm text-rose-100">
-        加载失败：{error}
-      </div>
-    );
-  }
-
-  if (!courses.length) {
-    return (
-      <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-6 text-sm text-slate-300">
-        当前还没有上架课程，可以通过 Remix 或作者中心创建第一门课程。
-      </div>
-    );
-  }
-
-  return (
-    <section className="space-y-3">
-      {message && (
-        <div className="rounded-2xl border border-emerald-500/40 bg-emerald-950/40 px-4 py-3 text-xs text-emerald-100">
-          {message}
-        </div>
-      )}
-
-      <ul className="grid gap-6 md:grid-cols-2">
-        {courses.map((course) => {
-          const isPending = pendingCourseId === course.id;
-          const purchased = !!purchasedMap[course.id.toString()];
-
-          return (
-            <li
-              key={course.id.toString()}
-              className="flex flex-col gap-4 rounded-3xl border border-white/10 bg-white/5 p-6 shadow-2xl shadow-slate-950/40"
-            >
-              <div className="flex items-center justify-between gap-2">
-                <div className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-300">
-                  课程 #{course.id.toString()}
-                </div>
-                <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-[11px] font-medium text-emerald-300">
-                  {course.isActive ? "上架中" : "已下架"}
-                </span>
-              </div>
-
-              <div className="space-y-1">
-                <div className="text-xl font-semibold text-slate-50">
-                  {formatEther(course.price)} YD
-                </div>
-                <div className="text-xs text-slate-400">
-                  作者：{course.author}
-                </div>
-                <div className="text-xs text-slate-400">
-                  metadataURI：{course.metadataURI}
-                </div>
-              </div>
-
-              <button
-                className={`mt-2 w-full rounded-2xl border border-transparent px-4 py-3 text-sm font-semibold tracking-wide transition-all disabled:cursor-not-allowed disabled:opacity-60 ${
-                  isPending || purchased
-                    ? "bg-slate-600"
-                    : "bg-emerald-500 hover:bg-emerald-400 shadow-lg shadow-emerald-900/40"
-                }`}
-                disabled={
-                  !isConnected || !course.isActive || isPending || purchased
-                }
-                onClick={() => handleBuy(course)}
-              >
-                {!isConnected
-                  ? "请先连接钱包"
-                  : !course.isActive
-                  ? "课程已下架"
-                  : purchased
-                  ? "已购买"
-                  : isPending
-                  ? "处理中..."
-                  : "购买课程"}
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-    </section>
-  );
-};
