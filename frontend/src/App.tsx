@@ -7,7 +7,7 @@ import Header from "./components/Header";
 import { WalletSection } from "./components/WalletSection";
 import { CreateCourseForm } from "./components/CreateCourseForm";
 import { CourseList } from "./components/CourseList";
-import AaveVaultPanel from "./components/AaveVaultPanel";
+import AaveVaultSection from "./components/AaveVaultSection";
 import type { UICourse } from "./components/CourseCard";
 import BuyYDPanel from "./components/BuyYDPanel";
 import SwapYDToUsdtPanel from "./components/SwapYDToUsdtPanel";
@@ -314,7 +314,7 @@ const App: React.FC = () => {
           }}
         />
 
-        <AaveVaultPanel />
+        <AaveVaultSection />
       </main>
     </div>
   );

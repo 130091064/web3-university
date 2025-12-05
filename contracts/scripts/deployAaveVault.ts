@@ -12,36 +12,35 @@ const __dirname = path.dirname(__filename);
 async function main() {
   const { viem } = await network.connect();
 
+  // 1. 从环境变量读取 MockUSDT 地址 + 初始利率
   const UNDERLYING = process.env.AAVE_UNDERLYING as `0x${string}`;
-  const ATOKEN = process.env.AAVE_ATOKEN as `0x${string}`;
-  const POOL = process.env.AAVE_POOL as `0x${string}`;
+  const RATE_RAY_STR =
+    process.env.AAVE_LIQUIDITY_RATE_RAY ?? "50000000000000000000000000"; // 默认 5%
 
-  if (!UNDERLYING || !ATOKEN || !POOL) {
-    throw new Error(
-      "请在 .env 中配置 AAVE_UNDERLYING, AAVE_ATOKEN, AAVE_POOL"
-    );
+  if (!UNDERLYING) {
+    throw new Error("请在 .env 中配置 AAVE_UNDERLYING=MockUSDT地址");
   }
 
-  console.log("UNDERLYING:", UNDERLYING);
-  console.log("ATOKEN:", ATOKEN);
-  console.log("POOL:", POOL);
+  const INITIAL_RATE_RAY = BigInt(RATE_RAY_STR);
 
-  // 部署 AaveVault 合约
+  console.log("UNDERLYING (MockUSDT):", UNDERLYING);
+  console.log("INITIAL_RATE_RAY:", INITIAL_RATE_RAY.toString());
+
+  // 2. 部署 AaveVault 合约（注意这里只有两个参数）
   const vault = await viem.deployContract("AaveVault", [
     UNDERLYING,
-    ATOKEN,
-    POOL,
+    INITIAL_RATE_RAY,
   ]);
 
   console.log("AaveVault deployed to:", vault.address);
 
-  // 写入 deployments/sepolia.json，复用你之前的结构
+  // 3. 更新 deployments/sepolia.json
   const deploymentsDir = path.join(__dirname, "..", "deployments");
   if (!fs.existsSync(deploymentsDir)) {
     fs.mkdirSync(deploymentsDir, { recursive: true });
   }
 
-  const file = path.join(deploymentsDir, 'sepolia.json');
+  const file = path.join(deploymentsDir, "sepolia.json");
 
   let data: any = {};
   if (fs.existsSync(file)) {

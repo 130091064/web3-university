@@ -1,176 +1,168 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-/// @notice 精简版 ERC20 接口
-interface IERC20 {
-    function balanceOf(address account) external view returns (uint256);
-    function allowance(
-        address owner,
-        address spender
-    ) external view returns (uint256);
-    function approve(address spender, uint256 amount) external returns (bool);
-    function transferFrom(
-        address from,
-        address to,
-        uint256 amount
-    ) external returns (bool);
-}
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
-/// @notice 精简版 AAVE v3 Pool 接口（只保留我们要用到的函数）
-interface IAavePool {
-    function supply(
-        address asset,
-        uint256 amount,
-        address onBehalfOf,
-        uint16 referralCode
-    ) external;
+import "./MockUSDT.sol";
 
-    function withdraw(
-        address asset,
-        uint256 amount,
-        address to
-    ) external returns (uint256);
-}
+/// @title AaveVault - Aave 风格的“真实 pool”USDT 理财金库
+/// @notice 资产用 MockUSDT，利息自动随时间增长（固定年化利率）
+contract AaveVault is ReentrancyGuard, Ownable {
+    using SafeERC20 for MockUSDT;
 
-/**
- * @title AaveVault
- * @dev 课程作者的理财金库：
- *  - 只支持一种 underlying 资产（你的 USDT）
- *  - 内部用 AAVE v3 Pool 存取，获得 aUSDT
- *  - 用户通过 share 模型按比例享有金库里的资产（本金+利息）
- */
-contract AaveVault {
-    IERC20 public immutable underlying;
-    IERC20 public immutable aToken;
-    IAavePool public immutable pool;
-    address public owner;
+    uint256 internal constant RAY = 1e27;
+    uint256 internal constant SECONDS_PER_YEAR = 365 days;
 
-    // share 模型
-    mapping(address => uint256) public shares;
-    uint256 public totalShares;
+    MockUSDT public immutable asset;
 
-    event Deposited(address indexed user, uint256 amount, uint256 mintedShares);
-    event Withdrawn(address indexed user, uint256 amount, uint256 burnedShares);
-    event OwnerChanged(address indexed oldOwner, address indexed newOwner);
+    // Aave 风格的利息参数
+    uint128 public liquidityIndex; // 收益指数（RAY 精度）
+    uint128 public liquidityRate; // 年化利率（RAY 精度）
+    uint40 public lastUpdateTimestamp; // 上次更新时间
 
-    modifier onlyOwner() {
-        require(msg.sender == owner, "Not owner");
-        _;
+    // 用户缩放后余额
+    mapping(address => uint256) public scaledBalanceOf;
+    uint256 public totalScaledSupply;
+
+    event Deposit(address indexed user, uint256 assets, uint256 scaledAmount);
+    event Withdraw(address indexed user, uint256 assets, uint256 scaledBurn);
+    event LiquidityRateUpdated(uint256 newRate);
+    event StateUpdated(uint256 newIndex, uint256 timestamp);
+
+    constructor(
+        address _asset,
+        uint256 _initialLiquidityRateRay
+    ) Ownable(msg.sender) {
+        require(_asset != address(0), "asset is zero");
+        asset = MockUSDT(_asset);
+
+        // 初始 index = 1 RAY，表示没有收益
+        liquidityIndex = uint128(RAY);
+        lastUpdateTimestamp = uint40(block.timestamp);
+        liquidityRate = uint128(_initialLiquidityRateRay); // 比如 5% = 0.05 * 1e27
     }
 
-    constructor(address _underlying, address _aToken, address _pool) {
-        require(_underlying != address(0), "underlying required");
-        require(_aToken != address(0), "aToken required");
-        require(_pool != address(0), "pool required");
+    // ============ 内部：更新利息状态 ============
 
-        underlying = IERC20(_underlying);
-        aToken = IERC20(_aToken);
-        pool = IAavePool(_pool);
-        owner = msg.sender;
-    }
+    /// @notice 根据当前时间和利率，更新 liquidityIndex
+    function _updateState() internal {
+        uint40 currentTimestamp = uint40(block.timestamp);
+        uint40 lastTimestamp = lastUpdateTimestamp;
 
-    function setOwner(address newOwner) external onlyOwner {
-        require(newOwner != address(0), "zero owner");
-        emit OwnerChanged(owner, newOwner);
-        owner = newOwner;
-    }
-
-    /// @notice 金库当前总资产（含利息）= aToken 余额
-    function totalUnderlying() public view returns (uint256) {
-        return aToken.balanceOf(address(this));
-    }
-
-    /// @notice 查询某个用户当前对应的资产价值（根据 share 占比）
-    function balanceOf(address user) external view returns (uint256) {
-        if (totalShares == 0) return 0;
-        uint256 userShares = shares[user];
-        if (userShares == 0) return 0;
-
-        uint256 totalAssets = totalUnderlying();
-        return (userShares * totalAssets) / totalShares;
-    }
-
-    /**
-     * @notice 存入 underlying（USDT）到 AAVE
-     * @dev 需要用户提前对本合约做 ERC20 approve
-     */
-    function deposit(uint256 amount) external {
-        require(amount > 0, "amount = 0");
-
-        // 1. 把 USDT 从用户转到 vault
-        bool ok = underlying.transferFrom(msg.sender, address(this), amount);
-        require(ok, "transferFrom failed");
-
-        // 2. 授权给 Pool（只要不足就批量 approve 一次）
-        uint256 allowanceNow = underlying.allowance(
-            address(this),
-            address(pool)
-        );
-        if (allowanceNow < amount) {
-            require(
-                underlying.approve(address(pool), type(uint256).max),
-                "approve failed"
-            );
+        if (currentTimestamp == lastTimestamp) {
+            return;
         }
 
-        // 3. 调用 AAVE supply，把资产存入借贷池，aUSDT 记在 vault 上
-        uint256 beforeAssets = totalUnderlying();
-        pool.supply(address(underlying), amount, address(this), 0);
-        uint256 afterAssets = totalUnderlying();
+        uint256 dt = uint256(currentTimestamp - lastTimestamp);
+        uint256 currentIndex = uint256(liquidityIndex);
+        uint256 rate = uint256(liquidityRate);
 
-        uint256 added = afterAssets - beforeAssets; // 理论上 ~= amount
-        require(added > 0, "no asset added");
-
-        // 4. 计算要分配给用户的 share 数量
-        uint256 mintedShares;
-        if (totalShares == 0 || beforeAssets == 0) {
-            mintedShares = added;
-        } else {
-            // 新增资产 : 之前总资产 = 新增 share : 总 share
-            mintedShares = (added * totalShares) / beforeAssets;
+        if (rate == 0) {
+            lastUpdateTimestamp = currentTimestamp;
+            return;
         }
 
-        require(mintedShares > 0, "mintedShares = 0");
+        // 简化版线性利息：index = index + index * rate * dt / (RAY * SECONDS_PER_YEAR)
+        uint256 accrued = (currentIndex * rate * dt) / (RAY * SECONDS_PER_YEAR);
+        currentIndex = currentIndex + accrued;
 
-        shares[msg.sender] += mintedShares;
-        totalShares += mintedShares;
+        liquidityIndex = uint128(currentIndex);
+        lastUpdateTimestamp = currentTimestamp;
 
-        emit Deposited(msg.sender, added, mintedShares);
+        emit StateUpdated(currentIndex, currentTimestamp);
     }
 
-    /**
-     * @notice 赎回指定 share 对应的资产
-     * @param shareAmount 要赎回多少 share（不是资产数量）
-     */
-    function withdraw(uint256 shareAmount) external {
-        require(shareAmount > 0, "shareAmount = 0");
-        require(shares[msg.sender] >= shareAmount, "insufficient shares");
+    // ============ 视图函数 ============
 
-        uint256 _totalShares = totalShares;
-        uint256 _totalAssets = totalUnderlying();
+    /// @notice 返回当前时刻的最新 index（不改状态）
+    function getCurrentIndex() public view returns (uint256) {
+        uint40 currentTimestamp = uint40(block.timestamp);
+        uint40 lastTimestamp = lastUpdateTimestamp;
+        uint256 currentIndex = uint256(liquidityIndex);
+        uint256 rate = uint256(liquidityRate);
 
-        uint256 underlyingAmount = (shareAmount * _totalAssets) / _totalShares;
-        require(underlyingAmount > 0, "amount=0");
+        if (currentTimestamp == lastTimestamp || rate == 0) {
+            return currentIndex;
+        }
 
-        // 更新 share 记录
-        shares[msg.sender] -= shareAmount;
-        totalShares = _totalShares - shareAmount;
-
-        // 从 AAVE 取回 underlying，直接发给用户
-        uint256 withdrawn = pool.withdraw(
-            address(underlying),
-            underlyingAmount,
-            msg.sender
-        );
-        require(withdrawn > 0, "withdraw failed");
-
-        emit Withdrawn(msg.sender, withdrawn, shareAmount);
+        uint256 dt = uint256(currentTimestamp - lastTimestamp);
+        uint256 accrued = (currentIndex * rate * dt) / (RAY * SECONDS_PER_YEAR);
+        return currentIndex + accrued;
     }
 
-    /// @notice 一键赎回自己所有 share
+    /// @notice 用户当前可赎回的资产余额
+    function balanceOf(address user) public view returns (uint256) {
+        uint256 index = getCurrentIndex();
+        return (scaledBalanceOf[user] * index) / RAY;
+    }
+
+    /// @notice 池子总资产（所有用户可赎回总和）
+    function totalAssets() public view returns (uint256) {
+        uint256 index = getCurrentIndex();
+        return (totalScaledSupply * index) / RAY;
+    }
+
+    // ============ 存入 / 取出 ============
+
+    /// @notice 存入 MockUSDT，获得带利息的仓位（缩放余额）
+    function deposit(uint256 assets) external nonReentrant {
+        require(assets > 0, "assets = 0");
+
+        _updateState();
+
+        uint256 index = uint256(liquidityIndex);
+        // scaledAmount = assets / index
+        // 为避免精度丢失：scaled = assets * RAY / index
+        uint256 scaledAmount = (assets * RAY) / index;
+        require(scaledAmount > 0, "scaled = 0");
+
+        // 把资产转入池子
+        asset.safeTransferFrom(msg.sender, address(this), assets);
+
+        // 更新缩放余额和总供给
+        scaledBalanceOf[msg.sender] += scaledAmount;
+        totalScaledSupply += scaledAmount;
+
+        emit Deposit(msg.sender, assets, scaledAmount);
+    }
+
+    /// @notice 赎回指定资产数量（如果用户余额足够）
+    function withdraw(uint256 assets) public nonReentrant {
+        require(assets > 0, "assets = 0");
+
+        _updateState();
+
+        uint256 index = uint256(liquidityIndex);
+        uint256 userBalance = balanceOf(msg.sender);
+        require(userBalance >= assets, "insufficient balance");
+
+        // 要烧掉多少 scaled 余额：scaled = assets * RAY / index
+        uint256 scaledToBurn = (assets * RAY) / index;
+        require(scaledToBurn > 0, "scaledToBurn = 0");
+        require(scaledBalanceOf[msg.sender] >= scaledToBurn, "scaled too much");
+
+        scaledBalanceOf[msg.sender] -= scaledToBurn;
+        totalScaledSupply -= scaledToBurn;
+
+        asset.safeTransfer(msg.sender, assets);
+
+        emit Withdraw(msg.sender, assets, scaledToBurn);
+    }
+
+    /// @notice 一次性赎回全部（按当前 index 计算）
     function withdrawAll() external {
-        uint256 userShares = shares[msg.sender];
-        require(userShares > 0, "no shares");
-        this.withdraw(userShares);
+        uint256 amount = balanceOf(msg.sender);
+        withdraw(amount); // ✅ 现在这里不会再标红
+    }
+
+    // ============ 管理：配置利率 ============
+
+    /// @notice 设置年化利率（RAY 精度），例如：5% = 0.05 * 1e27
+    function setLiquidityRate(uint256 newRateRay) external onlyOwner {
+        _updateState(); // 先把之前的利息结算到当前 index
+        liquidityRate = uint128(newRateRay);
+        emit LiquidityRateUpdated(newRateRay);
     }
 }
