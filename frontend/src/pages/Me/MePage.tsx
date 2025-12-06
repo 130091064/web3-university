@@ -19,6 +19,8 @@ type UserProfile = {
   updatedAt: number;
 };
 
+type ProfileSource = "none" | "remote" | "local";
+
 // Cloudflare Worker API 根地址（本地默认 8787，线上用 VITE_PROFILE_API_BASE_URL 覆盖）
 const PROFILE_API_BASE_URL =
   import.meta.env.VITE_PROFILE_API_BASE_URL ?? "http://localhost:8787";
@@ -56,16 +58,18 @@ const MePage = () => {
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
   const [isSyncingRemote, setIsSyncingRemote] = useState(false);
   const [remoteError, setRemoteError] = useState<string | null>(null);
+  const [profileSource, setProfileSource] = useState<ProfileSource>("none");
 
   const storageKey = address
     ? `web3-university-profile-${address.toLowerCase()}`
     : null;
 
-  // 从 localStorage 读取昵称签名信息；没有的话用 ENS 作为默认输入框内容
+  // 从远程 KV + localStorage 读取昵称签名信息；没有的话用 ENS 作为默认输入框内容
   useEffect(() => {
     if (!address || !storageKey) {
       setProfile(null);
       setNicknameInput("");
+      setProfileSource("none");
       return;
     }
 
@@ -74,6 +78,7 @@ const MePage = () => {
     const loadProfile = async () => {
       setIsLoadingProfile(true);
       setRemoteError(null);
+      setProfileSource("none");
 
       try {
         // 1️⃣ 优先尝试从远程 Worker 读取
@@ -93,6 +98,7 @@ const MePage = () => {
               localStorage.setItem(storageKey, JSON.stringify(remoteProfile));
               setProfile(remoteProfile);
               setNicknameInput(remoteProfile.nickname);
+              setProfileSource("remote");
               return; // 直接返回，不再读 localStorage
             }
           } else {
@@ -110,11 +116,13 @@ const MePage = () => {
           if (!cancelled) {
             setProfile(parsed);
             setNicknameInput(parsed.nickname);
+            setProfileSource("local");
           }
         } else {
           if (!cancelled) {
             setProfile(null);
             setNicknameInput(ensNameString ?? "");
+            setProfileSource("none");
           }
         }
       } catch (e) {
@@ -122,6 +130,7 @@ const MePage = () => {
         if (!cancelled) {
           setProfile(null);
           setNicknameInput(ensNameString ?? "");
+          setProfileSource("none");
         }
       } finally {
         if (!cancelled) {
@@ -159,8 +168,10 @@ const MePage = () => {
           updatedAt: Date.now(),
         };
 
+        // 先写本地
         localStorage.setItem(storageKey, JSON.stringify(nextProfile));
         setProfile(nextProfile);
+        setProfileSource("local");
 
         // 2️⃣ 同步到 Cloudflare KV
         setIsSyncingRemote(true);
@@ -175,16 +186,20 @@ const MePage = () => {
             body: JSON.stringify(nextProfile),
           });
 
-          if (!res.ok) {
+          if (res.ok) {
+            setProfileSource("remote"); // 成功写入云端
+          } else {
             const data = await res.json().catch(() => null);
             const msg =
               (data && (data.error as string)) || `同步云端失败：${res.status}`;
             console.error("Sync profile to Worker failed:", msg);
             setRemoteError(msg);
+            setProfileSource("local");
           }
         } catch (e) {
           console.error("Sync profile to Worker error:", e);
           setRemoteError("同步云端失败，请稍后重试。");
+          setProfileSource("local");
         } finally {
           setIsSyncingRemote(false);
         }
@@ -237,6 +252,27 @@ const MePage = () => {
   const signatureShort = profile?.signature
     ? `${profile.signature.slice(0, 10)}...${profile.signature.slice(-10)}`
     : "";
+
+  // 云端 / 本地 来源文案
+  let profileSourceLabel = "尚未签名";
+  let profileSourceBadgeClass =
+    "bg-slate-700 text-slate-200 border border-slate-500/60";
+
+  if (profile) {
+    if (profileSource === "remote") {
+      profileSourceLabel = "已同步云端 KV";
+      profileSourceBadgeClass =
+        "bg-emerald-500/20 text-emerald-200 border border-emerald-400/60";
+    } else if (profileSource === "local") {
+      profileSourceLabel = "仅本地签名（未上传云端）";
+      profileSourceBadgeClass =
+        "bg-amber-500/20 text-amber-100 border border-amber-400/60";
+    } else {
+      profileSourceLabel = "签名来源未知";
+      profileSourceBadgeClass =
+        "bg-slate-700 text-slate-200 border border-slate-500/60";
+    }
+  }
 
   return (
     <section className="space-y-8">
@@ -355,11 +391,19 @@ const MePage = () => {
                   </p>
                 )}
 
-                {/* ✅ 身份签名标识（防篡改感） */}
+                {/* ✅ 身份签名标识（防篡改感 + 云端/本地来源提示） */}
                 <div className="rounded-2xl bg-slate-900 p-4 text-xs text-slate-100 shadow-sm">
-                  <p className="text-[13px] font-semibold text-sky-100">
-                    身份签名标识
-                  </p>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[13px] font-semibold text-sky-100">
+                      身份签名标识
+                    </p>
+                    <span
+                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${profileSourceBadgeClass}`}
+                    >
+                      ● {profileSourceLabel}
+                    </span>
+                  </div>
+
                   {profile ? (
                     <>
                       <p className="mt-2 text-slate-300">
@@ -371,21 +415,21 @@ const MePage = () => {
                       <p className="mt-1 text-slate-300">
                         当前昵称：{profile.nickname}
                       </p>
-                      <p className="mt-1 text-slate-400">
-                        签名摘要：
-                        <span className="font-mono">{signatureShort}</span>
-                      </p>
+                      {signatureShort && (
+                        <p className="mt-1 text-slate-400">
+                          签名摘要：
+                          <span className="font-mono">{signatureShort}</span>
+                        </p>
+                      )}
                       <p className="mt-2 text-[11px] text-slate-400">
-                        以上签名由钱包对昵称和地址进行确认，记录在本地与云端 KV
-                        中，仅你本人持有私钥才能重新生成，用于证明「这个昵称确实是你本人认领」。
-                      </p>
-                      <p className="mt-2 inline-flex items-center rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-300">
-                        ● 已验证
+                        以上签名由钱包对昵称和地址进行确认，记录在本地和云端
+                        KV（如上状态所示），仅你本人持有私钥才能重新生成，用于证明「这个昵称确实是你本人认领」。
                       </p>
                     </>
                   ) : (
                     <p className="mt-2 text-[11px] text-slate-400">
-                      当前还没有签名昵称。完成一次「签名并保存昵称」后，这里会生成一个只属于你的身份标识，用于后续课程记录、排行榜等场景。
+                      当前还没有签名昵称。完成一次「签名并保存昵称」后，这里会生成一个只属于你的身份标识，并显示它是「仅本地签名」还是「已同步云端
+                      KV」。
                     </p>
                   )}
                 </div>
