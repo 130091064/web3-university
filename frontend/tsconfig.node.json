@@ -17,6 +17,7 @@
     "paths": {
       "@components/*": ["src/components/*"],
       "@contracts/*": ["src/contracts/*"],
+      "@utils/*": ["src/utils/*"],
       "@pages/*": ["src/pages/*"],
       "@config/*": ["src/config/*"],
       "@hooks/*": ["src/hooks/*"],

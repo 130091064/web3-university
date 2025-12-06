@@ -3,7 +3,7 @@ import type { Address } from "viem";
 export const YD_TOKEN_ADDRESS =
   "0x0b7ef65f95b665dd55dff22e9cd1e5ef4d392e5b" as Address;
 export const COURSE_MARKETPLACE_ADDRESS =
-  "0x9cf9dead82a68ada14a91102bb260c0684c732e2" as Address;
+  "0xbd64e42bf6cdbb5608bc87aef3a72cc5b01a2908" as Address;
 export const AAVE_VAULT_ADDRESS =
   "0xb54a41deb7c8532c96d6b0d6846593f1e68fe252" as Address;
 export const YD_SALE_ADDRESS =

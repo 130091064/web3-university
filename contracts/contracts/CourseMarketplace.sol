@@ -10,8 +10,8 @@ contract CourseMarketplace {
         uint256 price; // 以 YD 最小单位计价
         string metadataURI; // 课程详情的 URL/IPFS
         bool isActive;
-        uint256 studentCount;   // ⭐ 已购买人数（包含作者自己）
-        uint64 createdAt;       // ⭐ 创建时间戳
+        uint256 studentCount; // ⭐ 已购买人数（包含作者自己）
+        uint64 createdAt; // ⭐ 创建时间戳
     }
 
     IERC20 public immutable ydToken;
@@ -19,8 +19,13 @@ contract CourseMarketplace {
 
     uint256 public nextCourseId;
     mapping(uint256 => Course) public courses;
+
     // user => courseId => purchased?
     mapping(address => mapping(uint256 => bool)) public purchased;
+
+    // ⭐ 新增：用户已购课程索引（核心）
+    // user => 该用户买过的所有课程 id 列表
+    mapping(address => uint256[]) private _purchasedCourseIds;
 
     event CourseCreated(
         uint256 indexed id,
@@ -69,12 +74,15 @@ contract CourseMarketplace {
             price: price,
             metadataURI: metadataURI,
             isActive: true,
-            studentCount: 1,                 // ⭐ 作者默认算一个学员
+            studentCount: 1, // ⭐ 作者默认算一个学员
             createdAt: uint64(block.timestamp)
         });
 
         // ⭐ 作者创建课程时，自动视为已购买
         purchased[msg.sender][courseId] = true;
+
+        // ⭐ 新增：把课程 id 记录到作者自己的“已购课程列表”中
+        _purchasedCourseIds[msg.sender].push(courseId);
 
         emit CourseCreated(courseId, msg.sender, price, metadataURI);
         return courseId;
@@ -109,8 +117,14 @@ contract CourseMarketplace {
         bool ok = ydToken.transferFrom(msg.sender, c.author, c.price);
         require(ok, "YD transfer failed");
 
+        // 标记已购买
         purchased[msg.sender][courseId] = true;
-        c.studentCount += 1; // ⭐ 学员数 +1
+
+        // ⭐ 新增：把课程 id 记录到该用户的“已购课程列表”中
+        _purchasedCourseIds[msg.sender].push(courseId);
+
+        // 学员数 +1
+        c.studentCount += 1;
 
         emit CoursePurchased(courseId, msg.sender, c.price);
     }
@@ -127,5 +141,12 @@ contract CourseMarketplace {
     function getCourse(uint256 courseId) external view returns (Course memory) {
         require(courses[courseId].id != 0, "Course not found");
         return courses[courseId];
+    }
+
+    // ⭐ 新增：按用户地址查询该用户买过的所有课程 id
+    function getPurchasedCourseIds(
+        address user
+    ) external view returns (uint256[] memory) {
+        return _purchasedCourseIds[user];
     }
 }

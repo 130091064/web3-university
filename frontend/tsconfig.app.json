@@ -20,6 +20,8 @@
       "@components/*": ["src/components/*"],
       "@contracts/*": ["src/contracts/*"],
       "@contracts": ["src/contracts/index.ts"],
+      "@utils/*": ["src/utils/*"],
+      "@utils": ["src/utils/index.ts"],
       "@pages/*": ["src/pages/*"],
       "@config/*": ["src/config/*"],
       "@hooks/*": ["src/hooks/*"],

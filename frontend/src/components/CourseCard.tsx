@@ -1,4 +1,5 @@
 import React from "react";
+import { formatDateTime } from "@utils";
 import { formatUnits } from "viem";
 
 export interface UICourse {
@@ -15,19 +16,6 @@ export interface UICourse {
 
 const shorten = (addr: string) =>
   addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : "";
-
-// 简单的时间格式化：YYYY-MM-DD HH:mm
-const formatDateTime = (ts?: bigint) => {
-  if (!ts || ts === 0n) return "";
-  const d = new Date(Number(ts) * 1000); // 合约里是秒，这里转毫秒
-  const pad = (n: number) => n.toString().padStart(2, "0");
-  const Y = d.getFullYear();
-  const M = pad(d.getMonth() + 1);
-  const D = pad(d.getDate());
-  const h = pad(d.getHours());
-  const m = pad(d.getMinutes());
-  return `${Y}-${M}-${D} ${h}:${m}`;
-};
 
 interface CourseCardProps {
   course: UICourse;
@@ -60,7 +48,8 @@ export const CourseCard: React.FC<CourseCardProps> = ({
     statusColor = "bg-gradient-to-r from-amber-50 to-orange-50 text-amber-700";
   } else if (course.hasPurchased) {
     statusText = "已购买";
-    statusColor = "bg-gradient-to-r from-emerald-50 to-teal-50 text-emerald-700";
+    statusColor =
+      "bg-gradient-to-r from-emerald-50 to-teal-50 text-emerald-700";
   } else {
     statusText = "可购买";
     statusColor = "bg-gradient-to-r from-sky-50 to-cyan-50 text-sky-700";
@@ -76,6 +65,10 @@ export const CourseCard: React.FC<CourseCardProps> = ({
 
   const canBuy =
     isActive && !course.isAuthor && !course.hasPurchased && !disabled;
+
+  // metadataURI 既可以是「简介」，也可以是「链接」
+  const trimmedMeta = (metadataURI || "").trim();
+  const isUrl = /^https?:\/\//i.test(trimmedMeta);
 
   return (
     <div className="flex flex-col justify-between rounded-2xl border border-transparent bg-linear-to-br from-white via-sky-50 to-blue-100/60 p-5 shadow-2xl shadow-sky-100/80 ring-1 ring-sky-100/80">
@@ -129,19 +122,32 @@ export const CourseCard: React.FC<CourseCardProps> = ({
       </div>
 
       <div className="mt-3 flex items-center justify-between gap-3">
-        <a
-          href={metadataURI}
-          target="_blank"
-          rel="noreferrer"
-          className="truncate text-xs text-sky-600 underline-offset-2 hover:text-sky-700 hover:underline"
-        >
-          {metadataURI || "无 metadataURI"}
-        </a>
+        <div className="min-w-0 flex-1">
+          {trimmedMeta ? (
+            isUrl ? (
+              <a
+                href={trimmedMeta}
+                target="_blank"
+                rel="noreferrer"
+                className="truncate text-xs text-sky-600 underline-offset-2 hover:text-sky-700 hover:underline"
+                title={trimmedMeta}
+              >
+                课程详情链接：{trimmedMeta}
+              </a>
+            ) : (
+              <p className="line-clamp-2 text-xs text-slate-600">
+                课程简介：{trimmedMeta}
+              </p>
+            )
+          ) : (
+            <p className="text-xs text-slate-400">暂无课程简介</p>
+          )}
+        </div>
 
         <button
           disabled={!canBuy || buying}
           onClick={() => onBuy(id)}
-          className="rounded-2xl bg-linear-to-r from-sky-500 to-indigo-500 px-4 py-1.5 text-xs font-semibold text-white shadow-lg shadow-sky-200/70 transition hover:brightness-110 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:bg-none disabled:from-slate-200 disabled:to-slate-200 disabled:text-slate-500 disabled:shadow-none"
+          className="shrink-0 rounded-2xl bg-linear-to-r from-sky-500 to-indigo-500 px-4 py-1.5 text-xs font-semibold text-white shadow-lg shadow-sky-200/70 transition hover:brightness-110 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:bg-none disabled:from-slate-200 disabled:to-slate-200 disabled:text-slate-500 disabled:shadow-none"
         >
           {buying ? "处理中..." : buttonLabel}
         </button>
