@@ -78,7 +78,7 @@ export const CourseCard: React.FC<CourseCardProps> = ({
     isActive && !course.isAuthor && !course.hasPurchased && !disabled;
 
   return (
-    <div className="flex flex-col justify-between rounded-2xl border border-transparent bg-gradient-to-br from-white via-sky-50 to-blue-100/60 p-5 shadow-2xl shadow-sky-100/80 ring-1 ring-sky-100/80">
+    <div className="flex flex-col justify-between rounded-2xl border border-transparent bg-linear-to-br from-white via-sky-50 to-blue-100/60 p-5 shadow-2xl shadow-sky-100/80 ring-1 ring-sky-100/80">
       <div className="flex items-start justify-between gap-2">
         <div>
           <div className="flex items-center gap-2">
@@ -141,7 +141,7 @@ export const CourseCard: React.FC<CourseCardProps> = ({
         <button
           disabled={!canBuy || buying}
           onClick={() => onBuy(id)}
-          className="rounded-2xl bg-gradient-to-r from-sky-500 to-indigo-500 px-4 py-1.5 text-xs font-semibold text-white shadow-lg shadow-sky-200/70 transition hover:brightness-110 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:bg-none disabled:from-slate-200 disabled:to-slate-200 disabled:text-slate-500 disabled:shadow-none"
+          className="rounded-2xl bg-linear-to-r from-sky-500 to-indigo-500 px-4 py-1.5 text-xs font-semibold text-white shadow-lg shadow-sky-200/70 transition hover:brightness-110 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:bg-none disabled:from-slate-200 disabled:to-slate-200 disabled:text-slate-500 disabled:shadow-none"
         >
           {buying ? "处理中..." : buttonLabel}
         </button>

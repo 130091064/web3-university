@@ -11,7 +11,7 @@ interface CourseListProps {
 
 export const CourseList: React.FC<CourseListProps> = ({ courses, onBuy, buyingCourseId, disabled, loading }) => {
   return (
-    <section className="rounded-3xl bg-gradient-to-br from-white via-sky-50 to-blue-50/80 p-5 shadow-xl shadow-sky-100/70 ring-1 ring-sky-100/80">
+    <section className="rounded-3xl bg-linear-to-br from-white via-sky-50 to-blue-50/80 p-5 shadow-xl shadow-sky-100/70 ring-1 ring-sky-100/80">
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-lg font-semibold text-slate-900">课程列表</h2>
         {loading && <span className="text-xs text-slate-500">加载课程中...</span>}

@@ -1,8 +1,7 @@
-// src/components/BuyYDPanel.tsx
 import React, { useEffect, useState } from "react";
 import { useConnection, usePublicClient, useWriteContract } from "wagmi";
 import { formatUnits, parseEther } from "viem";
-import { YD_SALE_ADDRESS, ydSaleAbi } from "../contracts";
+import { YD_SALE_ADDRESS, ydSaleAbi } from "@contracts";
 
 interface BuyYDPanelProps {
   onBuySuccess?: () => void; // 购买成功后让外部刷新余额

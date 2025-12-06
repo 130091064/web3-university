@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { usePublicClient } from 'wagmi';
 import type { Address } from 'viem';
-import { COURSE_MARKETPLACE_ADDRESS, courseMarketplaceAbi } from '../contracts';
+import { COURSE_MARKETPLACE_ADDRESS, courseMarketplaceAbi } from '@contracts';
 
 export type Course = {
   id: bigint;
@@ -43,7 +43,7 @@ export function useCourses(reloadKey?: number) {
             abi: courseMarketplaceAbi,
             functionName: 'getCourse',
             args: [id],
-          })) as any;
+          })) as Course;
 
           result.push({
             id: course.id,
@@ -57,9 +57,10 @@ export function useCourses(reloadKey?: number) {
         }
 
         setCourses(result);
-      } catch (e: any) {
+      } catch (e) {
         console.error(e);
-        setError(e?.message ?? 'Failed to load courses');
+        const message = e instanceof Error ? e.message : 'Failed to load courses';
+        setError(message);
       } finally {
         setLoading(false);
       }

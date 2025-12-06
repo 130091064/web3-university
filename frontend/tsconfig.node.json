@@ -13,6 +13,15 @@
     "verbatimModuleSyntax": true,
     "moduleDetection": "force",
     "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@components/*": ["src/components/*"],
+      "@contracts/*": ["src/contracts/*"],
+      "@pages/*": ["src/pages/*"],
+      "@config/*": ["src/config/*"],
+      "@hooks/*": ["src/hooks/*"],
+      "@layouts/*": ["src/layouts/*"]
+    },
 
     /* Linting */
     "strict": true,

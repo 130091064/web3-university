@@ -26,6 +26,7 @@ async function main() {
     aaveVault?: `0x${string}`;
     ydSale?: `0x${string}`;
     ydUsdtSwap?: `0x${string}`;
+    mockUsdt?: `0x${string}`;
   };
 
   const YD_TOKEN_ADDRESS = deployments.ydToken;
@@ -37,7 +38,7 @@ async function main() {
   // 你可以：
   //  1）如果之前在 deployments 里存过，就直接用；
   //  2）否则，从 .env 读取 UNDERLYING。
-  const usdtAddress = process.env.AAVE_UNDERLYING as `0x${string}` | undefined;
+  const usdtAddress = deployments.mockUsdt;
 
   if (!usdtAddress) {
     throw new Error("USDT (UNDERLYING) address not found");

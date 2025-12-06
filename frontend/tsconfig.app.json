@@ -15,6 +15,16 @@
     "moduleDetection": "force",
     "noEmit": true,
     "jsx": "react-jsx",
+    "baseUrl": ".",
+    "paths": {
+      "@components/*": ["src/components/*"],
+      "@contracts/*": ["src/contracts/*"],
+      "@contracts": ["src/contracts/index.ts"],
+      "@pages/*": ["src/pages/*"],
+      "@config/*": ["src/config/*"],
+      "@hooks/*": ["src/hooks/*"],
+      "@layouts/*": ["src/layouts/*"]
+    },
 
     /* Linting */
     "strict": true,

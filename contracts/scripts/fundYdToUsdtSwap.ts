@@ -9,7 +9,7 @@ async function main() {
 
   // 你的实际地址
   const MOCK_USDT = '0x29b5e915355cab3f29c8854f1b18777f6081ac59' as const;
-  const SWAP = '0x8c341d454a8b58af041f66c7fde8dba6c21fb0be' as const;
+  const SWAP = '0xd0cf265f17d0655800abe6dd33c43376ec5281e7' as const;
 
   console.log('Using account:', sender);
   console.log('MockUSDT:', MOCK_USDT);

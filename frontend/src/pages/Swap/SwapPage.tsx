@@ -1,31 +1,25 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useConnection, usePublicClient, useWriteContract } from "wagmi";
 import { formatUnits, parseUnits } from "viem";
+
 import {
   YD_TOKEN_ADDRESS,
-  erc20Abi,
   YD_USDT_SWAP_ADDRESS,
+  erc20Abi,
   ydUsdtSwapAbi,
-} from "../contracts";
+} from "@contracts";
 
-interface SwapYDToUsdtPanelProps {
-  onSwapSuccess?: () => void; // 兑换成功后，让外层刷新余额 & AAVE 面板
-}
-
-const SwapYDToUsdtPanel: React.FC<SwapYDToUsdtPanelProps> = ({
-  onSwapSuccess,
-}) => {
+const SwapPage = () => {
   const { address, isConnected } = useConnection();
   const publicClient = usePublicClient();
   const { writeContractAsync } = useWriteContract();
 
   const [ydBalance, setYdBalance] = useState<bigint>(0n);
-  const [rate, setRate] = useState<bigint | null>(null); // 1 YD 可换多少 USDT(1e6)
+  const [rate, setRate] = useState<bigint | null>(null);
   const [inputYd, setInputYd] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // 读取 YD 余额 & 汇率
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     if (!publicClient || !address) return;
 
     const [bal, r] = await Promise.all([
@@ -44,26 +38,24 @@ const SwapYDToUsdtPanel: React.FC<SwapYDToUsdtPanelProps> = ({
 
     setYdBalance(bal);
     setRate(r);
-  };
+  }, [publicClient, address]);
 
   useEffect(() => {
     if (isConnected) {
       refresh();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isConnected]);
+  }, [isConnected, refresh]);
 
   if (!isConnected || !address) {
-    return null;
+    return <p className="text-sm text-slate-500">请先连接钱包。</p>;
   }
 
-  // 预计能拿到多少 USDT
   let expectedUsdt = "";
   if (rate && inputYd) {
     try {
-      const ydAmount = parseUnits(inputYd, 18); // YD 18 位精度
-      const usdtOut = (ydAmount * rate) / 10n ** 18n; // 计算规则和合约一致
-      expectedUsdt = formatUnits(usdtOut, 6); // USDT 6 位
+      const ydAmount = parseUnits(inputYd, 18);
+      const usdtOut = (ydAmount * rate) / 10n ** 18n;
+      expectedUsdt = formatUnits(usdtOut, 6);
     } catch {
       expectedUsdt = "";
     }
@@ -78,7 +70,6 @@ const SwapYDToUsdtPanel: React.FC<SwapYDToUsdtPanelProps> = ({
 
       const ydAmount = parseUnits(inputYd, 18);
 
-      // 1. 检查 allowance
       const allowance = (await publicClient.readContract({
         address: YD_TOKEN_ADDRESS,
         abi: erc20Abi,
@@ -99,7 +90,6 @@ const SwapYDToUsdtPanel: React.FC<SwapYDToUsdtPanelProps> = ({
         });
       }
 
-      // 2. 兑换
       const swapHash = await writeContractAsync({
         address: YD_USDT_SWAP_ADDRESS,
         abi: ydUsdtSwapAbi,
@@ -113,9 +103,7 @@ const SwapYDToUsdtPanel: React.FC<SwapYDToUsdtPanelProps> = ({
       });
 
       setInputYd("");
-      await refresh(); // 更新 YD 余额
-
-      onSwapSuccess?.();
+      await refresh();
     } catch (e) {
       console.error("swapYdForUsdt error:", e);
     } finally {
@@ -141,7 +129,7 @@ const SwapYDToUsdtPanel: React.FC<SwapYDToUsdtPanelProps> = ({
         我的 YD 余额：{formatUnits(ydBalance, 18)} YD
       </p>
       <p className="mb-3 text-xs text-slate-500">
-        当前汇率：{" "}
+        当前汇率：
         {rate
           ? `1 YD ≈ ${formatUnits(rate, 6)} USDT（仅作演示，固定汇率）`
           : "加载中..."}
@@ -177,11 +165,10 @@ const SwapYDToUsdtPanel: React.FC<SwapYDToUsdtPanelProps> = ({
 
       <p className="mt-2 text-[11px] leading-relaxed text-slate-500">
         * 本模块演示课程作者将 YD 收益按固定汇率兑换为 USDT，再通过下方 AAVE
-        理财金库将 USDT 存入 AAVE v3 Sepolia 赚取利息。实际生产环境中，兑换
-        步骤通常会由中心化交易所或聚合 DEX 完成。
+        金库将 USDT 存入赚取利息。
       </p>
     </section>
   );
 };
 
-export default SwapYDToUsdtPanel;
+export default SwapPage;

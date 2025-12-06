@@ -21,7 +21,7 @@ export const CreateCourseForm: React.FC<CreateCourseFormProps> = ({ onCreate, is
   };
 
   return (
-    <section className="mb-6 rounded-3xl bg-gradient-to-br from-white via-sky-50 to-blue-50/80 p-5 shadow-xl shadow-sky-100/70 ring-1 ring-sky-100/80">
+    <section className="mb-6 rounded-3xl bg-linear-to-br from-white via-sky-50 to-blue-50/80 p-5 shadow-xl shadow-sky-100/70 ring-1 ring-sky-100/80">
       <h2 className="mb-3 text-lg font-semibold text-slate-900">创建新课程</h2>
       <form onSubmit={handleSubmit} className="grid gap-3 md:grid-cols-[1fr,1fr,auto]">
         <div className="flex flex-col gap-1">
@@ -50,7 +50,7 @@ export const CreateCourseForm: React.FC<CreateCourseFormProps> = ({ onCreate, is
           <button
             type="submit"
             disabled={disabled || isCreating}
-            className="w-full rounded-2xl bg-gradient-to-r from-indigo-500 via-sky-500 to-cyan-400 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-sky-200/70 transition hover:brightness-110 disabled:cursor-not-allowed disabled:bg-slate-300"
+            className="w-full rounded-2xl bg-linear-to-r from-indigo-500 via-sky-500 to-cyan-400 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-sky-200/70 transition hover:brightness-110 disabled:cursor-not-allowed disabled:bg-slate-300"
           >
             {isCreating ? '创建中...' : '创建课程'}
           </button>
