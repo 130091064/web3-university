@@ -4,7 +4,7 @@ import { formatUnits, parseEther } from "viem";
 import { YD_SALE_ADDRESS, ydSaleAbi } from "@contracts";
 
 interface BuyYDPanelProps {
-  onBuySuccess?: () => void; // 购买成功后让外部刷新余额
+  onBuySuccess?: () => void;
 }
 
 const BuyYDPanel: React.FC<BuyYDPanelProps> = ({ onBuySuccess }) => {
@@ -16,15 +16,18 @@ const BuyYDPanel: React.FC<BuyYDPanelProps> = ({ onBuySuccess }) => {
   const [ethInput, setEthInput] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // 读取汇率
   const loadRate = async () => {
     if (!publicClient) return;
-    const r = (await publicClient.readContract({
-      address: YD_SALE_ADDRESS,
-      abi: ydSaleAbi,
-      functionName: "rate",
-    })) as bigint;
-    setRate(r);
+    try {
+      const r = (await publicClient.readContract({
+        address: YD_SALE_ADDRESS,
+        abi: ydSaleAbi,
+        functionName: "rate",
+      })) as bigint;
+      setRate(r);
+    } catch (e) {
+      console.error("loadRate error:", e);
+    }
   };
 
   useEffect(() => {
@@ -41,9 +44,9 @@ const BuyYDPanel: React.FC<BuyYDPanelProps> = ({ onBuySuccess }) => {
   let expectedYD = "";
   if (rate && ethInput) {
     try {
-      const ethWei = parseEther(ethInput); // 1 ETH = 1e18
-      const ydAmount = (ethWei * rate) / 10n ** 18n; // 18 decimals
-      expectedYD = formatUnits(ydAmount, 18); // YD 也是 18 位
+      const ethWei = parseEther(ethInput);
+      const ydAmount = (ethWei * rate) / 10n ** 18n;
+      expectedYD = formatUnits(ydAmount, 18);
     } catch {
       expectedYD = "";
     }
@@ -71,66 +74,78 @@ const BuyYDPanel: React.FC<BuyYDPanelProps> = ({ onBuySuccess }) => {
       });
 
       setEthInput("");
-
-      // 通知外部刷新余额
       onBuySuccess?.();
     } catch (e) {
       console.error("buyWithEth error:", e);
-      // 可以在这里接入 Toast 提示
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <section className="mt-2 rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm">
-      <div className="mb-2 flex items-center justify-between">
-        <h2 className="text-base font-semibold text-slate-800">
-          使用 Sepolia ETH 购买 YD
+    <section className="flex h-full min-h-[260px] flex-col rounded-2xl bg-slate-50/60 p-4 shadow-sm ring-1 ring-slate-100 sm:p-5">
+      {/* 标题 + 刷新汇率 */}
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <h2 className="text-base font-semibold text-slate-900">
+          购买 YD
         </h2>
         <button
           onClick={loadRate}
-          className="rounded-xl border border-slate-200 px-3 py-1 text-xs text-slate-700 hover:bg-slate-50"
+          className="inline-flex items-center cursor-pointer rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 shadow-sm hover:bg-slate-50"
         >
           刷新汇率
         </button>
       </div>
 
-      <p className="mb-2 text-xs text-slate-600">
-        当前汇率： {rate ? `1 ETH ≈ ${formatUnits(rate, 18)} YD` : "加载中..."}
-      </p>
-
-      <div className="flex flex-col gap-2 md:flex-row md:items-end">
-        <div className="flex-1">
-          <label className="mb-1 block text-xs text-slate-500">
-            想要花费的 ETH 数量
-          </label>
-          <input
-            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-200"
-            placeholder="例如：0.001"
-            value={ethInput}
-            onChange={(e) => setEthInput(e.target.value)}
-            disabled={loading}
-          />
-          {expectedYD && (
-            <p className="mt-1 text-[11px] text-slate-500">
-              预计可获得：{expectedYD} YD
-            </p>
-          )}
+      {/* 主体内容，用 flex-1 撑开 */}
+      <div className="flex-1">
+        {/* 当前汇率 */}
+        <div className="mb-3 text-xs text-slate-600">
+          当前汇率：
+          <span className="font-medium">
+            {rate ? `1 ETH ≈ ${formatUnits(rate, 18)} YD` : "加载中..."}
+          </span>
         </div>
 
-        <button
-          onClick={handleBuy}
-          disabled={loading || !ethInput}
-          className="mt-2 rounded-xl bg-emerald-500 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-emerald-600 disabled:cursor-not-allowed disabled:bg-slate-300 md:mt-0"
-        >
-          {loading ? "处理中..." : "购买 YD"}
-        </button>
-      </div>
+        {/* 输入区 + 预计数量 + 按钮 */}
+        <div className="space-y-3">
+          <div>
+            <label className="mb-1 block text-xs text-slate-500">
+              ETH 数量
+            </label>
+            <input
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-200"
+              placeholder="输入 ETH 数量"
+              value={ethInput}
+              onChange={(e) => setEthInput(e.target.value)}
+              disabled={loading}
+            />
+          </div>
 
-      <p className="mt-2 text-[11px] text-slate-500">
-        * 使用 Sepolia 测试 ETH 按固定汇率兑换平台内代币 YD（仅测试用途）。
-      </p>
+          <div className="flex items-center justify-between gap-3">
+            {expectedYD ? (
+              <p className="text-[11px] text-slate-500">
+                预计获得：
+                <span className="font-medium text-slate-700">
+                  {expectedYD} YD
+                </span>
+              </p>
+            ) : (
+              <span className="text-[11px] text-slate-400">
+                输入数量后将显示预计获得的 YD。
+              </span>
+            )}
+
+            <button
+              onClick={handleBuy}
+              disabled={loading || !ethInput}
+              className="h-10 w-32 shrink-0 rounded-xl bg-emerald-500 px-4 text-sm font-medium text-white shadow-sm hover:bg-emerald-600 disabled:cursor-not-allowed disabled:bg-slate-300"
+            >
+              {loading ? "处理中..." : "购买 YD"}
+            </button>
+          </div>
+        </div>
+      </div>
     </section>
   );
 };

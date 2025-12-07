@@ -6,6 +6,7 @@ import {
   useEnsAvatar,
   useSignMessage,
 } from "wagmi";
+import { sepolia } from "wagmi/chains";
 import { formatUnits, type Address } from "viem";
 import { useCourses, type Course } from "@hooks/useCourses";
 import { usePurchasedCourses } from "@hooks/usePurchasedCourses";
@@ -25,10 +26,11 @@ type ProfileSource = "none" | "remote" | "local";
 const PROFILE_API_BASE_URL =
   import.meta.env.VITE_PROFILE_API_BASE_URL ?? "http://localhost:8787";
 
-const shortenAddress = (addr?: string) => {
-  if (!addr) return "";
-  return addr.slice(0, 6) + "..." + addr.slice(-4);
-};
+const shortenAddress = (addr?: string) =>
+  addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : "";
+
+// 简单判断是否为 http(s) 链接
+const isHttpUrl = (value: string) => /^https?:\/\//i.test(value.trim());
 
 const MePage = () => {
   const connection = useConnection();
@@ -38,6 +40,10 @@ const MePage = () => {
   const chainId = connection.chainId ?? globalChainId;
   const isConnected = Boolean(address);
 
+  // 课程合约所在网络（你现在是部署在 Sepolia）
+  const isOnSepolia = chainId === sepolia.id;
+  const isWrongNetwork = isConnected && !isOnSepolia;
+
   const MAINNET_CHAIN_ID = 1; // ENS 固定使用主网
 
   // ENS 信息（固定主网查询）
@@ -45,7 +51,6 @@ const MePage = () => {
     address,
     chainId: MAINNET_CHAIN_ID,
   });
-
   const ensNameString = typeof ensName === "string" ? ensName : undefined;
 
   const { data: ensAvatar } = useEnsAvatar({
@@ -93,20 +98,19 @@ const MePage = () => {
             };
 
             if (!cancelled && data.profile) {
-              // 远程存在昵称 → 作为权威来源，同时写回 localStorage
               const remoteProfile = data.profile;
               localStorage.setItem(storageKey, JSON.stringify(remoteProfile));
               setProfile(remoteProfile);
               setNicknameInput(remoteProfile.nickname);
               setProfileSource("remote");
-              return; // 直接返回，不再读 localStorage
+              return;
             }
           } else {
             console.warn("Remote profile request failed:", res.status);
           }
         } catch (e) {
           console.warn("Failed to load remote profile", e);
-          setRemoteError("远程昵称读取失败，已使用本地缓存。");
+          setRemoteError("云端昵称读取失败，已使用本地缓存。");
         }
 
         // 2️⃣ 远程没有 / 失败 → 回退到 localStorage + ENS
@@ -146,7 +150,7 @@ const MePage = () => {
     };
   }, [address, storageKey, ensNameString]);
 
-  // 签名修改昵称（wagmi v2 写法）
+  // 签名修改昵称
   const {
     signMessage,
     isPending: isSigning,
@@ -168,12 +172,12 @@ const MePage = () => {
           updatedAt: Date.now(),
         };
 
-        // 先写本地
+        // 本地缓存
         localStorage.setItem(storageKey, JSON.stringify(nextProfile));
         setProfile(nextProfile);
         setProfileSource("local");
 
-        // 2️⃣ 同步到 Cloudflare KV
+        // 同步到 Cloudflare KV
         setIsSyncingRemote(true);
         setRemoteError(null);
 
@@ -187,7 +191,7 @@ const MePage = () => {
           });
 
           if (res.ok) {
-            setProfileSource("remote"); // 成功写入云端
+            setProfileSource("remote");
           } else {
             const data = await res.json().catch(() => null);
             const msg =
@@ -197,7 +201,7 @@ const MePage = () => {
             setProfileSource("local");
           }
         } catch (e) {
-          console.error("Sync profile to Worker error:", e);
+          console.error("Sync profile to Worker error", e);
           setRemoteError("同步云端失败，请稍后重试。");
           setProfileSource("local");
         } finally {
@@ -237,18 +241,30 @@ const MePage = () => {
     error: purchasedError,
   } = usePurchasedCourses(userAddress);
 
-  // 根据已购 ID + 全量课程，计算真正的「已购买课程」列表
+  // 统一处理「课程相关错误」的对用户文案
+  const rawCourseError = coursesError || purchasedError;
+  let friendlyCourseError: string | null = null;
+  if (rawCourseError) {
+    if (isWrongNetwork) {
+      friendlyCourseError =
+        "当前网络与课程合约所在网络不一致，请切换到顶部的 Sepolia Testnet 后再查看课程记录。";
+    } else {
+      friendlyCourseError = "加载课程记录失败，请稍后重试。";
+    }
+    console.error("MePage course error:", rawCourseError);
+  }
+
+  // 计算真正的「已购买课程」列表
   const myCourses: Course[] = useMemo(() => {
     if (!courses || !purchasedIds || purchasedIds.length === 0) return [];
     const idSet = new Set(purchasedIds.map((id) => id.toString()));
     return courses.filter((course) => idSet.has(course.id.toString()));
   }, [courses, purchasedIds]);
 
-  // 用于展示的“当前昵称”优先级：签名昵称 > ENS > 地址缩写
+  // 显示用昵称：签名昵称 > ENS > 地址缩写
   const displayNickname =
     profile?.nickname || ensNameString || shortenAddress(address);
 
-  // 简单生成一个短的“身份签名摘要”（展示在深色卡片里）
   const signatureShort = profile?.signature
     ? `${profile.signature.slice(0, 10)}...${profile.signature.slice(-10)}`
     : "";
@@ -264,7 +280,7 @@ const MePage = () => {
       profileSourceBadgeClass =
         "bg-emerald-500/20 text-emerald-200 border border-emerald-400/60";
     } else if (profileSource === "local") {
-      profileSourceLabel = "仅本地签名（未上传云端）";
+      profileSourceLabel = "仅本地签名";
       profileSourceBadgeClass =
         "bg-amber-500/20 text-amber-100 border border-amber-400/60";
     } else {
@@ -275,234 +291,295 @@ const MePage = () => {
   }
 
   return (
-    <section className="space-y-8">
-      {/* 顶部 - 用户基础信息 */}
-      <div className="rounded-3xl bg-white/80 p-6 shadow-sm">
-        <p className="text-xl font-semibold">用户中心（M5）</p>
-        <p className="mt-2 text-sm text-slate-500">
-          通过钱包签名安全地管理昵称，并查看你在平台上购买 / 拥有的课程。
-        </p>
+    <section className="rounded-2xl bg-white/90 p-4 shadow-sm ring-1 ring-slate-100 sm:p-6">
+      <div className="space-y-6">
+        {/* ✅ 页面级主 / 副标题，跟其他页面统一 */}
+        <div>
+          <h1 className="text-xl font-semibold text-slate-900">我的账户</h1>
+          <p className="mt-1 text-sm text-slate-500">
+            管理你的链上身份，并查看学习资产与课程记录。
+          </p>
+        </div>
 
-        {!isConnected ? (
-          <div className="mt-6 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
-            请先在右上角连接钱包，才能使用用户中心功能。
-          </div>
-        ) : (
-          <div className="mt-6 grid gap-6 md:grid-cols-2">
-            {/* 钱包信息 */}
-            <div className="rounded-2xl border border-slate-100 bg-slate-50/60 p-4">
-              <p className="text-sm font-medium text-slate-600">钱包信息</p>
-              <div className="mt-3 flex items-center gap-3">
-                {ensAvatar && (
-                  <img
-                    src={ensAvatar}
-                    alt="ENS Avatar"
-                    className="h-10 w-10 rounded-full border border-slate-200"
-                  />
-                )}
-                <div className="space-y-1 text-sm text-slate-700">
-                  <div>
-                    <span className="text-slate-500">当前地址：</span>
-                    <span className="font-mono">{shortenAddress(address)}</span>
-                  </div>
-                  {ensNameString && (
-                    <div>
-                      <span className="text-slate-500">ENS：</span>
-                      <span>{ensNameString}</span>
-                    </div>
-                  )}
-                  <div>
-                    <span className="text-slate-500">当前网络：</span>
-                    <span>ChainId {chainId}</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-500">当前昵称：</span>
-                    <span className="font-medium">{displayNickname}</span>
-                  </div>
-                  {profile && (
-                    <div>
-                      <span className="text-slate-500">最近签名时间：</span>
-                      <span>
-                        {new Date(profile.updatedAt).toLocaleString()}
-                      </span>
-                    </div>
-                  )}
-                  {isLoadingProfile && (
-                    <p className="pt-1 text-xs text-slate-400">
-                      正在加载昵称信息…
-                    </p>
-                  )}
-                  {remoteError && (
-                    <p className="pt-1 text-xs text-amber-600">{remoteError}</p>
-                  )}
-                </div>
-              </div>
+        {/* 顶部：账户 & 昵称 */}
+        <div className="rounded-3xl bg-slate-50/80 p-4 shadow-sm ring-1 ring-slate-100 sm:p-6">
+          {!isConnected ? (
+            <div className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
+              请先在页面顶部连接钱包，再进入用户中心。
             </div>
+          ) : (
+            <div className="space-y-6">
+              {/* 第一行：钱包信息 + 昵称设置 */}
+              <div className="grid gap-6 md:grid-cols-2">
+                {/* 钱包信息卡片 */}
+                <div className="rounded-2xl border border-slate-100 bg-white/90 p-4 shadow-sm">
+                  <p className="text-sm font-medium text-slate-700">钱包信息</p>
 
-            {/* 昵称 & 签名 */}
-            <div className="rounded-2xl border border-slate-100 bg-slate-50/60 p-4">
-              <p className="text-sm font-medium text-slate-600">
-                昵称设置（通过签名确认）
-              </p>
+                  <div className="mt-3 flex items-center gap-3">
+                    {ensAvatar && (
+                      <img
+                        src={ensAvatar}
+                        alt="ENS Avatar"
+                        className="h-10 w-10 rounded-full border border-slate-200 object-cover"
+                      />
+                    )}
 
-              <div className="mt-3 space-y-3 text-sm">
-                <div className="flex flex-col gap-2">
-                  <label className="text-xs text-slate-500">
-                    当前昵称（可修改后签名保存）
-                  </label>
-                  <input
-                    className="h-9 rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none ring-0 transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
-                    placeholder="例如：Web3 学习者"
-                    value={nicknameInput}
-                    onChange={(e) => setNicknameInput(e.target.value)}
-                    disabled={!isConnected || isSigning}
-                  />
-                </div>
-
-                <button
-                  type="button"
-                  onClick={handleSaveNickname}
-                  disabled={!isConnected || !nicknameInput.trim() || isSigning}
-                  className="inline-flex h-9 items-center justify-center rounded-xl bg-sky-500 px-4 text-sm font-medium text-white shadow-sm transition hover:bg-sky-600 disabled:cursor-not-allowed disabled:bg-slate-300"
-                >
-                  {isSigning
-                    ? "签名中…"
-                    : isSyncingRemote
-                    ? "同步云端中…"
-                    : "签名并保存昵称"}
-                </button>
-
-                {isLoadingProfile && (
-                  <p className="text-xs text-slate-400">
-                    正在加载本地昵称信息…
-                  </p>
-                )}
-
-                {profile && (
-                  <p className="text-xs text-slate-500">
-                    已签名保存的昵称：{" "}
-                    <span className="font-medium">{profile.nickname}</span>
-                  </p>
-                )}
-
-                {signError && (
-                  <p className="text-xs text-red-500">
-                    签名失败：{signError.message}
-                  </p>
-                )}
-
-                {/* ✅ 身份签名标识（防篡改感 + 云端/本地来源提示） */}
-                <div className="rounded-2xl bg-slate-900 p-4 text-xs text-slate-100 shadow-sm">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-[13px] font-semibold text-sky-100">
-                      身份签名标识
-                    </p>
-                    <span
-                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${profileSourceBadgeClass}`}
-                    >
-                      ● {profileSourceLabel}
-                    </span>
-                  </div>
-
-                  {profile ? (
-                    <>
-                      <p className="mt-2 text-slate-300">
-                        昵称绑定地址：
+                    <div className="space-y-1 text-sm text-slate-700">
+                      <div>
+                        <span className="text-slate-500">当前地址：</span>
                         <span className="font-mono">
-                          {shortenAddress(profile.address)}
+                          {shortenAddress(address)}
                         </span>
-                      </p>
-                      <p className="mt-1 text-slate-300">
-                        当前昵称：{profile.nickname}
-                      </p>
-                      {signatureShort && (
-                        <p className="mt-1 text-slate-400">
-                          签名摘要：
-                          <span className="font-mono">{signatureShort}</span>
+                      </div>
+                      {ensNameString && (
+                        <div>
+                          <span className="text-slate-500">ENS：</span>
+                          <span>{ensNameString}</span>
+                        </div>
+                      )}
+                      <div>
+                        <span className="text-slate-500">当前网络：</span>
+                        <span>ChainId {chainId}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500">当前昵称：</span>
+                        <span className="font-medium">{displayNickname}</span>
+                      </div>
+                      {profile && (
+                        <div>
+                          <span className="text-slate-500">最近签名：</span>
+                          <span>
+                            {new Date(profile.updatedAt).toLocaleString()}
+                          </span>
+                        </div>
+                      )}
+                      {isLoadingProfile && (
+                        <p className="pt-1 text-xs text-slate-400">
+                          正在加载昵称信息…
                         </p>
                       )}
-                      <p className="mt-2 text-[11px] text-slate-400">
-                        以上签名由钱包对昵称和地址进行确认，记录在本地和云端
-                        KV（如上状态所示），仅你本人持有私钥才能重新生成，用于证明「这个昵称确实是你本人认领」。
+                      {remoteError && (
+                        <p className="pt-1 text-xs text-amber-600">
+                          {remoteError}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 昵称设置卡片 */}
+                <div className="rounded-2xl border border-slate-100 bg-white/90 p-4 shadow-sm">
+                  <p className="text-sm font-medium text-slate-700">
+                    昵称设置（链上签名）
+                  </p>
+
+                  <div className="mt-3 space-y-3 text-sm">
+                    <div className="flex flex-col gap-2">
+                      <label className="text-xs text-slate-500">
+                        昵称（签名后将与当前地址绑定）
+                      </label>
+                      <input
+                        className="h-9 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none ring-0 transition focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-100"
+                        placeholder="例如：Web3 学习者"
+                        value={nicknameInput}
+                        onChange={(e) => setNicknameInput(e.target.value)}
+                        disabled={!isConnected || isSigning}
+                      />
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleSaveNickname}
+                      disabled={
+                        !isConnected || !nicknameInput.trim() || isSigning
+                      }
+                      className="inline-flex cursor-pointer h-9 items-center justify-center rounded-xl bg-sky-500 px-4 text-sm font-medium text-white shadow-sm transition hover:bg-sky-600 disabled:cursor-not-allowed disabled:bg-slate-300"
+                    >
+                      {isSigning
+                        ? "签名中…"
+                        : isSyncingRemote
+                        ? "同步云端中…"
+                        : "签名并保存昵称"}
+                    </button>
+
+                    {profile && (
+                      <p className="text-xs text-slate-500">
+                        已签名昵称：
+                        <span className="font-medium">{profile.nickname}</span>
                       </p>
-                    </>
-                  ) : (
-                    <p className="mt-2 text-[11px] text-slate-400">
-                      当前还没有签名昵称。完成一次「签名并保存昵称」后，这里会生成一个只属于你的身份标识，并显示它是「仅本地签名」还是「已同步云端
-                      KV」。
-                    </p>
-                  )}
+                    )}
+
+                    {signError && (
+                      <p className="text-xs text-red-500">
+                        签名失败：{signError.message}
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
+
+              {/* 第二行：身份签名标识（全宽） */}
+              <div className="rounded-2xl bg-slate-900/95 p-4 text-xs text-slate-50 shadow-sm">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[13px] font-semibold text-sky-100">
+                    身份签名标识
+                  </p>
+                  <span
+                    className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${profileSourceBadgeClass}`}
+                  >
+                    ● {profileSourceLabel}
+                  </span>
+                </div>
+
+                {profile ? (
+                  <>
+                    <p className="mt-2 text-slate-300">
+                      地址：
+                      <span className="font-mono">
+                        {shortenAddress(profile.address)}
+                      </span>
+                    </p>
+                    <p className="mt-1 text-slate-300">
+                      昵称：{profile.nickname}
+                    </p>
+                    {signatureShort && (
+                      <p className="mt-1 text-slate-400">
+                        签名摘要：
+                        <span className="font-mono">{signatureShort}</span>
+                      </p>
+                    )}
+                    <p className="mt-2 text-[11px] text-slate-400">
+                      昵称变更需要重新发起钱包签名。云端 KV
+                      仅保存签名结果，不接触你的私钥。
+                    </p>
+                  </>
+                ) : (
+                  <p className="mt-2 text-[11px] text-slate-400">
+                    还没有签名昵称。完成一次「签名并保存昵称」后，这里会生成你的身份标识，并显示是「仅本地签名」还是「已同步云端
+                    KV」。
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* 已购课程 */}
+        <div className="rounded-3xl bg-slate-50/80 p-4 shadow-sm ring-1 ring-slate-100 sm:p-6">
+          <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
+            <div>
+              <p className="text-base sm:text-lg font-semibold text-slate-900">
+                已购课程
+              </p>
+              <p className="mt-1 text-sm text-slate-500">
+                基于链上记录展示当前地址已购买 / 创建的课程。
+              </p>
             </div>
           </div>
-        )}
-      </div>
 
-      {/* 已购课程列表 */}
-      <div className="rounded-3xl bg-white/80 p-6 shadow-sm">
-        <p className="text-lg font-semibold">已购买的课程</p>
-        <p className="mt-2 text-sm text-slate-500">
-          基于合约中按学生地址记录的购买关系，展示当前钱包已经购买的课程。
-          作者自己创建的课程也会出现在列表中。
-        </p>
+          {!isConnected ? (
+            <div className="mt-6 rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-500">
+              连接钱包后即可查看本地址的课程记录。
+            </div>
+          ) : isWrongNetwork ? (
+            <div className="mt-6 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
+              当前网络暂不支持读取课程记录，请在顶部切换到 Sepolia Testnet
+              后再查看。
+            </div>
+          ) : isCoursesLoading || isPurchasedLoading ? (
+            <div className="mt-6 text-sm text-slate-500">正在加载课程数据…</div>
+          ) : friendlyCourseError ? (
+            <div className="mt-6 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-600">
+              {friendlyCourseError}
+            </div>
+          ) : myCourses.length === 0 ? (
+            <div className="mt-6 rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-500">
+              当前地址还没有购买任何课程，可以前往「课程平台」选购一门课程试试。
+            </div>
+          ) : (
+            <ul className="mt-6 grid gap-4 md:grid-cols-2">
+              {myCourses.map((course) => {
+                const price = formatUnits(course.price, 18);
+                const isAuthor =
+                  address &&
+                  course.author.toLowerCase() === address.toLowerCase();
+                const meta = (course.metadataURI || "").trim();
+                const urlLike = meta && isHttpUrl(meta);
 
-        {!isConnected ? (
-          <div className="mt-6 rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-500">
-            请先连接钱包后查看已购课程。
-          </div>
-        ) : isCoursesLoading || isPurchasedLoading ? (
-          <div className="mt-6 text-sm text-slate-500">正在加载课程数据…</div>
-        ) : coursesError || purchasedError ? (
-          <div className="mt-6 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-600">
-            加载课程失败：{coursesError || purchasedError}
-          </div>
-        ) : myCourses.length === 0 ? (
-          <div className="mt-6 rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-500">
-            当前钱包还没有购买任何课程。可以前往「课程平台」页面选购课程。
-          </div>
-        ) : (
-          <ul className="mt-6 space-y-4">
-            {myCourses.map((course) => (
-              <li
-                key={course.id.toString()}
-                className="rounded-2xl border border-slate-100 bg-slate-50/80 p-4"
-              >
-                <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-slate-800">
-                      课程 #{course.id.toString()}
-                    </p>
-                    {course.metadataURI && (
-                      <a
-                        href={course.metadataURI}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="mt-1 block text-xs text-sky-600 hover:underline"
-                      >
-                        {course.metadataURI}
-                      </a>
-                    )}
-                    <p className="mt-1 text-xs text-slate-500">
-                      学生人数：{course.studentCount.toString()}
-                    </p>
-                    <p className="mt-1 text-xs text-slate-500">
-                      状态：{course.isActive ? "上架中" : "已下架"}
-                    </p>
-                  </div>
-                  <div className="mt-2 text-right md:mt-0">
-                    <p className="text-sm font-semibold text-slate-800">
-                      价格：{formatUnits(course.price, 18)} YD
-                    </p>
-                    <p className="mt-1 text-xs text-slate-500">
-                      创建时间：{formatDateTime(course.createdAt)}
-                    </p>
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
+                return (
+                  <li
+                    key={course.id.toString()}
+                    className="h-full rounded-2xl border border-slate-100 bg-white/90 p-4 shadow-sm"
+                  >
+                    <div className="flex h-full flex-col justify-between gap-3 md:gap-2">
+                      {/* 上半区：标题 & 简要信息 */}
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-semibold text-slate-900">
+                            课程 #{course.id.toString()}
+                          </p>
+                          <span
+                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                              isAuthor
+                                ? "bg-amber-50 text-amber-700 border border-amber-100"
+                                : "bg-emerald-50 text-emerald-700 border border-emerald-100"
+                            }`}
+                          >
+                            {isAuthor ? "我是作者" : "已购买"}
+                          </span>
+                          {!course.isActive && (
+                            <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] text-slate-500">
+                              已下架
+                            </span>
+                          )}
+                        </div>
+
+                        {/* metadataURI：URL → 用右侧按钮；否则直接展示简介文案 */}
+                        {meta ? (
+                          urlLike ? (
+                            <p className="text-xs text-slate-500">
+                              已配置课程外部页面，可通过右侧「去学习」进入。
+                            </p>
+                          ) : (
+                            <p className="text-xs text-slate-600">
+                              课程简介：{meta}
+                            </p>
+                          )
+                        ) : (
+                          <p className="text-xs text-slate-400">暂无课程简介</p>
+                        )}
+
+                        <p className="text-xs text-slate-500">
+                          学生人数：{course.studentCount.toString()}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          创建时间：{formatDateTime(course.createdAt)}
+                        </p>
+                      </div>
+
+                      {/* 下半区：价格 + 去学习按钮 */}
+                      <div className="flex flex-col items-end gap-2">
+                        <p className="text-sm font-semibold text-slate-900">
+                          价格：{price} YD
+                        </p>
+                        {meta && urlLike && (
+                          <a
+                            href={meta}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center justify-center rounded-xl bg-sky-500 px-4 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-sky-600"
+                          >
+                            去学习
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
       </div>
     </section>
   );

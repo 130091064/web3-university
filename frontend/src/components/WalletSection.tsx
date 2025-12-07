@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 
 interface WalletSectionProps {
   address?: string;
@@ -10,34 +10,70 @@ interface WalletSectionProps {
 const shorten = (addr?: string) =>
   addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : "";
 
-export const WalletSection: React.FC<WalletSectionProps> = ({ address, ydBalance, isConnected, onRefresh }) => {
+export const WalletSection: React.FC<WalletSectionProps> = ({
+  address,
+  ydBalance,
+  isConnected,
+  onRefresh,
+}) => {
   return (
-    <section className="mb-6 rounded-3xl bg-linear-to-br from-white via-sky-50 to-blue-50/80 p-5 shadow-xl shadow-sky-100/80 ring-1 ring-sky-100/80">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h2 className="text-lg font-semibold text-slate-800">钱包 & 资产概览</h2>
+    <section className="flex h-full min-h-[260px] flex-col rounded-2xl bg-slate-50/80 p-4 shadow-sm ring-1 ring-slate-100 sm:p-5">
+      {/* 头部 */}
+      <div className="flex items-start justify-between gap-4">
+        <div className="space-y-1">
+          <h2 className="text-base font-semibold text-slate-900">
+            钱包 & 资产概览
+          </h2>
           {isConnected ? (
-            <>
-              <p className="mt-1 text-sm text-slate-600 break-all">
-                当前地址：<span className="font-mono">{shorten(address)}</span>
-              </p>
-              <p className="mt-1 text-sm text-slate-600">
-                YD 余额：<span className="font-semibold">{ydBalance}</span>
-              </p>
-            </>
+            <p className="text-xs text-slate-500">
+              钱包地址：
+              <span className="font-mono text-slate-700">
+                {shorten(address)}
+              </span>
+            </p>
           ) : (
-            <p className="mt-1 text-sm text-slate-500">请先在页面顶部连接钱包。</p>
+            <p className="text-xs text-slate-500">
+              连接钱包后即可查看你的链上资产。
+            </p>
           )}
         </div>
+
         {isConnected && onRefresh && (
           <button
             onClick={onRefresh}
-            className="rounded-xl bg-linear-to-r from-sky-400 to-cyan-400 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-cyan-200/80 transition hover:shadow-md active:scale-[0.98]"
+            className="inline-flex items-center cursor-pointer rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50 active:scale-[0.98]"
           >
-            刷新
+            刷新资产
           </button>
         )}
       </div>
+
+      {/* 主体内容：用 flex-1 把内容往下撑，让卡片高度更接近右侧 */}
+      {isConnected && (
+        <div className="mt-4 flex-1">
+          <div className="grid gap-4 sm:grid-cols-2">
+            {/* YD 余额卡片 */}
+            <div className="rounded-xl bg-white/90 p-3 shadow-sm ring-1 ring-slate-100">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-slate-500">
+                  YD 余额
+                </span>
+                <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[10px] text-sky-700">
+                  平台代币
+                </span>
+              </div>
+              <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">
+                {ydBalance ?? "0"}
+              </p>
+            </div>
+
+            {/* 统计占位卡片 */}
+            <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/60 p-3 text-xs text-slate-400">
+              预留统计位，可扩展显示 USDT 余额、课程收益等数据。
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 };

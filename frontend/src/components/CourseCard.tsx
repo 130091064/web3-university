@@ -41,24 +41,23 @@ export const CourseCard: React.FC<CourseCardProps> = ({
   let statusColor = "";
 
   if (!isActive) {
-    statusText = "已下架";
-    statusColor = "bg-slate-100/90 text-slate-500";
+    statusText = "下架";
+    statusColor = "bg-slate-100 text-slate-500";
   } else if (course.isAuthor) {
-    statusText = "我是作者";
-    statusColor = "bg-gradient-to-r from-amber-50 to-orange-50 text-amber-700";
+    statusText = "我的课程";
+    statusColor = "bg-amber-50 text-amber-700";
   } else if (course.hasPurchased) {
     statusText = "已购买";
-    statusColor =
-      "bg-gradient-to-r from-emerald-50 to-teal-50 text-emerald-700";
+    statusColor = "bg-emerald-50 text-emerald-700";
   } else {
-    statusText = "可购买";
-    statusColor = "bg-gradient-to-r from-sky-50 to-cyan-50 text-sky-700";
+    statusText = "上架中";
+    statusColor = "bg-sky-50 text-sky-700";
   }
 
-  // 按钮文案 & 状态
-  let buttonLabel = "购买课程";
+  // 按钮文案
+  let buttonLabel = "购买";
   if (course.isAuthor) {
-    buttonLabel = "我是作者";
+    buttonLabel = "作者";
   } else if (course.hasPurchased) {
     buttonLabel = "已购买";
   }
@@ -66,56 +65,43 @@ export const CourseCard: React.FC<CourseCardProps> = ({
   const canBuy =
     isActive && !course.isAuthor && !course.hasPurchased && !disabled;
 
-  // metadataURI 既可以是「简介」，也可以是「链接」
   const trimmedMeta = (metadataURI || "").trim();
   const isUrl = /^https?:\/\//i.test(trimmedMeta);
 
   return (
-    <div className="flex flex-col justify-between rounded-2xl border border-transparent bg-linear-to-br from-white via-sky-50 to-blue-100/60 p-5 shadow-2xl shadow-sky-100/80 ring-1 ring-sky-100/80">
-      <div className="flex items-start justify-between gap-2">
-        <div>
+    <div className="flex flex-col justify-between rounded-2xl bg-white/90 p-4 shadow-sm ring-1 ring-slate-100">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 space-y-1">
           <div className="flex items-center gap-2">
             <span className="text-xs font-medium uppercase tracking-wide text-slate-400">
               课程 #{id.toString()}
             </span>
             <span
-              className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium shadow ${statusColor}`}
+              className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${statusColor}`}
             >
               {statusText}
             </span>
           </div>
 
-          <p className="mt-1 text-xs text-slate-500">
-            作者：<span className="font-mono">{shorten(author)}</span>
+          <p className="text-xs text-slate-500">
+            作者：
+            <span className="font-mono text-slate-700">{shorten(author)}</span>
           </p>
 
-          {/* 创建时间 */}
           {createdAtText && (
-            <p className="mt-1 text-[11px] text-slate-500">
+            <p className="text-[11px] text-slate-500">
               创建于：{createdAtText}
-            </p>
-          )}
-
-          {/* 已购/作者提示 */}
-          {course.isAuthor && (
-            <p className="mt-1 text-[11px] text-amber-600">
-              你是该课程的作者，自动拥有此课程。
-            </p>
-          )}
-          {!course.isAuthor && course.hasPurchased && (
-            <p className="mt-1 text-[11px] text-emerald-700">
-              你已购买此课程，可以随时查看学习记录（后续可扩展）。
             </p>
           )}
         </div>
 
-        <div className="text-right">
+        <div className="shrink-0 text-right">
           <div className="text-sm font-semibold text-slate-900">
             {formattedPrice} YD
           </div>
           {studentCount !== undefined && (
             <div className="mt-1 text-xs text-slate-500">
-              已有 {studentCount.toString()} 人购买
+              已购 {studentCount.toString()} 人
             </div>
           )}
         </div>
@@ -132,11 +118,11 @@ export const CourseCard: React.FC<CourseCardProps> = ({
                 className="truncate text-xs text-sky-600 underline-offset-2 hover:text-sky-700 hover:underline"
                 title={trimmedMeta}
               >
-                课程详情链接：{trimmedMeta}
+                课程链接：{trimmedMeta}
               </a>
             ) : (
               <p className="line-clamp-2 text-xs text-slate-600">
-                课程简介：{trimmedMeta}
+                {trimmedMeta}
               </p>
             )
           ) : (
@@ -147,7 +133,7 @@ export const CourseCard: React.FC<CourseCardProps> = ({
         <button
           disabled={!canBuy || buying}
           onClick={() => onBuy(id)}
-          className="shrink-0 rounded-2xl bg-linear-to-r from-sky-500 to-indigo-500 px-4 py-1.5 text-xs font-semibold text-white shadow-lg shadow-sky-200/70 transition hover:brightness-110 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:bg-none disabled:from-slate-200 disabled:to-slate-200 disabled:text-slate-500 disabled:shadow-none"
+          className="shrink-0 cursor-pointer rounded-xl bg-linear-to-r from-sky-500 to-indigo-500 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:brightness-110 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:bg-none disabled:text-slate-500"
         >
           {buying ? "处理中..." : buttonLabel}
         </button>

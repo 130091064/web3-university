@@ -5,6 +5,7 @@ import { formatUnits } from "viem";
 import { WalletSection } from "@components/WalletSection";
 import BuyYDPanel from "@components/BuyYDPanel";
 import { YD_TOKEN_ADDRESS, ydTokenAbi } from "@contracts";
+import { LearningFlowBar } from "@components/LearningFlowBar";
 
 const DashboardPage = () => {
   const { address, isConnected } = useConnection();
@@ -54,20 +55,36 @@ const DashboardPage = () => {
   }, [isConnected, fetchYdBalance]);
 
   return (
-    <div className="flex flex-col gap-6">
-      <WalletSection
-        address={address}
-        ydBalance={ydBalance}
-        isConnected={isConnected}
-        onRefresh={fetchYdBalance}
-      />
+    <section className="rounded-2xl bg-white/90 p-4 shadow-sm ring-1 ring-slate-100 sm:p-6">
+      <div className="space-y-6">
+        {/* 页面标题 */}
+        <div className="space-y-1">
+          <h1 className="text-xl font-semibold text-slate-900">资产概览</h1>
+          <p className="text-sm text-slate-500">
+            统一管理你的链上资产与平台代币。
+          </p>
+        </div>
 
-      <BuyYDPanel
-        onBuySuccess={async () => {
-          await fetchYdBalance();
-        }}
-      />
-    </div>
+        {/* 学习资金流向步骤条 */}
+        <LearningFlowBar currentStep={2} />
+
+        {/* 左右两卡片：钱包概览 + 购买 YD */}
+        <div className="grid gap-4 lg:grid-cols-2">
+          <WalletSection
+            address={address}
+            ydBalance={ydBalance}
+            isConnected={isConnected}
+            onRefresh={fetchYdBalance}
+          />
+
+          <BuyYDPanel
+            onBuySuccess={async () => {
+              await fetchYdBalance();
+            }}
+          />
+        </div>
+      </div>
+    </section>
   );
 };
 
