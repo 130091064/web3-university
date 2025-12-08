@@ -1,0 +1,83 @@
+{
+  "numFailedTestSuites": 0,
+  "numFailedTests": 0,
+  "numPassedTestSuites": 1,
+  "numPassedTests": 1,
+  "numPendingTestSuites": 0,
+  "numPendingTests": 0,
+  "numRuntimeErrorTestSuites": 0,
+  "numTodoTests": 0,
+  "numTotalTestSuites": 1,
+  "numTotalTests": 1,
+  "openHandles": [],
+  "snapshot": {
+    "added": 0,
+    "didUpdate": false,
+    "failure": false,
+    "filesAdded": 0,
+    "filesRemoved": 0,
+    "filesRemovedList": [],
+    "filesUnmatched": 0,
+    "filesUpdated": 0,
+    "matched": 0,
+    "total": 0,
+    "unchecked": 0,
+    "uncheckedKeysByFile": [],
+    "unmatched": 0,
+    "updated": 0
+  },
+  "startTime": 1765175750672,
+  "success": false,
+  "testResults": [
+    {
+      "leaks": false,
+      "numFailingTests": 0,
+      "numPassingTests": 1,
+      "numPendingTests": 0,
+      "numTodoTests": 0,
+      "openHandles": [],
+      "perfStats": {
+        "end": 1765175773760,
+        "loadTestEnvironmentEnd": 1765175772419,
+        "loadTestEnvironmentStart": 1765175752227,
+        "runtime": 1337,
+        "setupAfterEnvEnd": 1765175773581,
+        "setupAfterEnvStart": 1765175773581,
+        "setupFilesEnd": 1765175772423,
+        "setupFilesStart": 1765175772423,
+        "slow": false,
+        "start": 1765175772423
+      },
+      "skipped": false,
+      "snapshot": {
+        "added": 0,
+        "fileDeleted": false,
+        "matched": 0,
+        "unchecked": 0,
+        "uncheckedKeys": [],
+        "unmatched": 0,
+        "updated": 0
+      },
+      "testFilePath": "C:\\my_private_space\\web3-university\\awesome-frontend\\tests\\unit\\index.spec.ts",
+      "testResults": [
+        {
+          "ancestorTitles": [],
+          "duration": 4,
+          "failing": false,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "sum works",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryReasons": [],
+          "startAt": 1765175773753,
+          "status": "passed",
+          "title": "sum works"
+        }
+      ],
+      "failureMessage": null
+    }
+  ],
+  "wasInterrupted": false
+}
