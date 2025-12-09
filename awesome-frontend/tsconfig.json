@@ -1,23 +1,35 @@
 {
-  // Visit https://aka.ms/tsconfig to read more about this file
-  "compilerOptions": {
-    "rootDir": ".",
-    "baseUrl": ".",
-    "module": "esnext",
-    "target": "ES2022",
-    "moduleResolution": "node",
-    "lib": ["dom", "dom.iterable", "esnext"],
-    "allowJs": true,
-    "noEmit": true,
-    "skipLibCheck": true,
-    "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true,
-    "strict": true,
-    "forceConsistentCasingInFileNames": true,
-    "jsx": "react-jsx",
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "types": ["node"]
-  },
-  "include": ["src", "tests"]
+	// Visit https://aka.ms/tsconfig to read more about this file
+	"compilerOptions": {
+		"rootDir": ".",
+		"baseUrl": ".",
+		"module": "esnext",
+		"target": "ES2022",
+		"moduleResolution": "node",
+		"lib": ["dom", "dom.iterable", "esnext"],
+		"allowJs": true,
+		"noEmit": true,
+		"skipLibCheck": true,
+		"esModuleInterop": true,
+		"allowSyntheticDefaultImports": true,
+		"strict": true,
+		"forceConsistentCasingInFileNames": true,
+		"jsx": "react-jsx",
+		"resolveJsonModule": true,
+		"isolatedModules": true,
+		"types": ["node"],
+		"paths": {
+			"@components/*": ["src/components/*"],
+			"@contracts/*": ["src/contracts/*"],
+			"@contracts": ["src/contracts/index.ts"],
+			"@utils/*": ["src/utils/*"],
+			"@utils": ["src/utils/index.ts"],
+			"@pages/*": ["src/pages/*"],
+			"@config/*": ["src/config/*"],
+			"@hooks/*": ["src/hooks/*"],
+			"@assets/*": ["src/assets/*"],
+			"@layouts/*": ["src/layouts/*"]
+		}
+	},
+	"include": ["src", "tests"]
 }
