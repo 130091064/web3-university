@@ -1,8 +1,8 @@
-import { Outlet } from "react-router-dom";
-import Header from "@components/layout/Header";
-import FullScreenLoader from "@components/layout/FullScreenLoader";
-import { useEffect, useState, Suspense } from "react";
-import LoadingSpinner from "@components/layout/LoadingSpinner";
+import FullScreenLoader from '@components/layout/FullScreenLoader';
+import Header from '@components/layout/Header';
+import LoadingSpinner from '@components/layout/LoadingSpinner';
+import { Suspense, useEffect, useState } from 'react';
+import { Outlet } from 'react-router-dom';
 
 let hasBootedOnce = false;
 

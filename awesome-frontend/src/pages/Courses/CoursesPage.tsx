@@ -1,24 +1,18 @@
-import { useEffect, useState, useCallback } from "react";
-import {
-  useConnection,
-  usePublicClient,
-  useWriteContract,
-  useChainId,
-} from "wagmi";
-import { sepolia } from "wagmi/chains";
-import { parseUnits } from "viem";
-
-import { CreateCourseForm } from "@components/CreateCourseForm";
-import { CourseList } from "@components/CourseList";
-import type { UICourse } from "@components/CourseCard";
-import { useCourses } from "@hooks/useCourses";
+import type { UICourse } from '@components/CourseCard';
+import { CourseList } from '@components/CourseList';
+import { CreateCourseForm } from '@components/CreateCourseForm';
+import { LearningFlowBar } from '@components/LearningFlowBar';
 import {
   COURSE_MARKETPLACE_ADDRESS,
-  YD_TOKEN_ADDRESS,
   courseMarketplaceAbi,
+  YD_TOKEN_ADDRESS,
   ydTokenAbi,
-} from "@contracts";
-import { LearningFlowBar } from "@components/LearningFlowBar";
+} from '@contracts';
+import { useCourses } from '@hooks/useCourses';
+import { useCallback, useEffect, useState } from 'react';
+import { parseUnits } from 'viem';
+import { useChainId, useConnection, usePublicClient, useWriteContract } from 'wagmi';
+import { sepolia } from 'wagmi/chains';
 
 const CoursesPage = () => {
   const { address, isConnected } = useConnection();
@@ -47,10 +41,9 @@ const CoursesPage = () => {
           isActive: c.isActive,
           studentCount: undefined,
           createdAt: undefined,
-          isAuthor:
-            !!address && c.author.toLowerCase() === address?.toLowerCase(),
+          isAuthor: !!address && c.author.toLowerCase() === address?.toLowerCase(),
           hasPurchased: false,
-        }))
+        })),
       );
       return;
     }
@@ -65,7 +58,7 @@ const CoursesPage = () => {
             hasPurchased = (await publicClient.readContract({
               address: COURSE_MARKETPLACE_ADDRESS,
               abi: courseMarketplaceAbi,
-              functionName: "hasPurchased",
+              functionName: 'hasPurchased',
               args: [address, c.id],
             })) as boolean;
           }
@@ -78,14 +71,13 @@ const CoursesPage = () => {
             isActive: c.isActive,
             studentCount: c.studentCount,
             createdAt: c.createdAt,
-            isAuthor:
-              !!address && c.author.toLowerCase() === address?.toLowerCase(),
+            isAuthor: !!address && c.author.toLowerCase() === address?.toLowerCase(),
             hasPurchased,
           });
         }
         setUiCourses(list);
       } catch (err) {
-        console.error("build uiCourses error:", err);
+        console.error('build uiCourses error:', err);
         setUiCourses(
           courses.map((c) => ({
             id: c.id,
@@ -95,10 +87,9 @@ const CoursesPage = () => {
             isActive: c.isActive,
             studentCount: c.studentCount,
             createdAt: c.createdAt,
-            isAuthor:
-              !!address && c.author.toLowerCase() === address?.toLowerCase(),
+            isAuthor: !!address && c.author.toLowerCase() === address?.toLowerCase(),
             hasPurchased: false,
-          }))
+          })),
         );
       }
     };
@@ -111,7 +102,7 @@ const CoursesPage = () => {
       if (!isConnected || !address || !publicClient) return;
       if (isWrongNetwork) {
         // 只提示就好，不再往下走，避免再抛一堆链上错误
-        alert("当前网络暂不支持创建课程，请切换到 Sepolia Testnet 后再试。");
+        alert('当前网络暂不支持创建课程，请切换到 Sepolia Testnet 后再试。');
         return;
       }
       if (!priceStr || !metadataURI) return;
@@ -123,7 +114,7 @@ const CoursesPage = () => {
         const hash = await writeContractAsync({
           address: COURSE_MARKETPLACE_ADDRESS,
           abi: courseMarketplaceAbi,
-          functionName: "createCourse",
+          functionName: 'createCourse',
           args: [price, metadataURI],
         });
 
@@ -134,19 +125,19 @@ const CoursesPage = () => {
 
         setReloadKey((k) => k + 1);
       } catch (err) {
-        console.error("createCourse error:", err);
+        console.error('createCourse error:', err);
       } finally {
         setCreating(false);
       }
     },
-    [isConnected, address, publicClient, writeContractAsync, isWrongNetwork]
+    [isConnected, address, publicClient, writeContractAsync, isWrongNetwork],
   );
 
   const handleBuyCourse = useCallback(
     async (courseId: bigint) => {
       if (!isConnected || !address || !publicClient) return;
       if (isWrongNetwork) {
-        alert("当前网络暂不支持购买课程，请切换到 Sepolia Testnet 后再试。");
+        alert('当前网络暂不支持购买课程，请切换到 Sepolia Testnet 后再试。');
         return;
       }
 
@@ -154,13 +145,13 @@ const CoursesPage = () => {
         setBuyingCourseId(courseId);
 
         const target = uiCourses.find((c) => c.id === courseId);
-        if (!target) throw new Error("Course not found in uiCourses");
+        if (!target) throw new Error('Course not found in uiCourses');
         const price = target.price;
 
         const allowance = (await publicClient.readContract({
           address: YD_TOKEN_ADDRESS,
           abi: ydTokenAbi,
-          functionName: "allowance",
+          functionName: 'allowance',
           args: [address, COURSE_MARKETPLACE_ADDRESS],
         })) as bigint;
 
@@ -168,7 +159,7 @@ const CoursesPage = () => {
           const approveHash = await writeContractAsync({
             address: YD_TOKEN_ADDRESS,
             abi: ydTokenAbi,
-            functionName: "approve",
+            functionName: 'approve',
             args: [COURSE_MARKETPLACE_ADDRESS, price],
           });
 
@@ -181,7 +172,7 @@ const CoursesPage = () => {
         const buyHash = await writeContractAsync({
           address: COURSE_MARKETPLACE_ADDRESS,
           abi: courseMarketplaceAbi,
-          functionName: "buyCourse",
+          functionName: 'buyCourse',
           args: [courseId],
         });
 
@@ -192,19 +183,12 @@ const CoursesPage = () => {
 
         setReloadKey((k) => k + 1);
       } catch (err) {
-        console.error("buyCourse error:", err);
+        console.error('buyCourse error:', err);
       } finally {
         setBuyingCourseId(undefined);
       }
     },
-    [
-      isConnected,
-      address,
-      publicClient,
-      uiCourses,
-      writeContractAsync,
-      isWrongNetwork,
-    ]
+    [isConnected, address, publicClient, uiCourses, writeContractAsync, isWrongNetwork],
   );
 
   useEffect(() => {
@@ -219,13 +203,12 @@ const CoursesPage = () => {
   let friendlyError: string | null = null;
   if (error) {
     if (isWrongNetwork) {
-      friendlyError =
-        "当前网络暂不支持读取课程记录，请在顶部切换到 Sepolia Testnet 后再查看。";
+      friendlyError = '当前网络暂不支持读取课程记录，请在顶部切换到 Sepolia Testnet 后再查看。';
     } else {
-      friendlyError = "加载课程时出现问题，请稍后重试。";
+      friendlyError = '加载课程时出现问题，请稍后重试。';
     }
     // 原始错误只打到控制台，不展示给用户
-    console.error("load courses error:", error);
+    console.error('load courses error:', error);
   }
 
   return (
@@ -234,9 +217,7 @@ const CoursesPage = () => {
         {/* 页面标题 */}
         <div className="space-y-1">
           <h1 className="text-xl font-semibold text-slate-900">课程市场</h1>
-          <p className="text-sm text-slate-500">
-            基于区块链的课程发布与购买平台。
-          </p>
+          <p className="text-sm text-slate-500">基于区块链的课程发布与购买平台。</p>
         </div>
 
         <LearningFlowBar currentStep={3} />
@@ -259,7 +240,9 @@ const CoursesPage = () => {
 
         {/* 友好错误提示 */}
         {friendlyError && (
-          <p className="mt-6 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-700">{friendlyError}</p>
+          <p className="mt-6 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
+            {friendlyError}
+          </p>
         )}
       </div>
     </section>

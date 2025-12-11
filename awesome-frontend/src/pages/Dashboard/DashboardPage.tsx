@@ -1,20 +1,19 @@
-import { useCallback, useEffect, useState } from "react";
-import { useConnection, usePublicClient } from "wagmi";
-import { formatUnits } from "viem";
-
-import { WalletSection } from "@components/WalletSection";
-import BuyYDPanel from "@components/BuyYDPanel";
-import { YD_TOKEN_ADDRESS, ydTokenAbi } from "@contracts";
-import { LearningFlowBar } from "@components/LearningFlowBar";
+import BuyYDPanel from '@components/BuyYDPanel';
+import { LearningFlowBar } from '@components/LearningFlowBar';
+import { WalletSection } from '@components/WalletSection';
+import { YD_TOKEN_ADDRESS, ydTokenAbi } from '@contracts';
+import { useCallback, useEffect, useState } from 'react';
+import { formatUnits } from 'viem';
+import { useConnection, usePublicClient } from 'wagmi';
 
 const DashboardPage = () => {
   const { address, isConnected } = useConnection();
   const publicClient = usePublicClient();
-  const [ydBalance, setYdBalance] = useState<string>("0");
+  const [ydBalance, setYdBalance] = useState<string>('0');
 
   const fetchYdBalance = useCallback(async () => {
     if (!publicClient || !address) {
-      setYdBalance("0");
+      setYdBalance('0');
       return;
     }
 
@@ -23,20 +22,20 @@ const DashboardPage = () => {
         publicClient.readContract({
           address: YD_TOKEN_ADDRESS,
           abi: ydTokenAbi,
-          functionName: "balanceOf",
+          functionName: 'balanceOf',
           args: [address],
         }) as Promise<bigint>,
         publicClient.readContract({
           address: YD_TOKEN_ADDRESS,
           abi: ydTokenAbi,
-          functionName: "decimals",
+          functionName: 'decimals',
         }) as Promise<number>,
       ]);
 
       setYdBalance(formatUnits(balanceRaw, decimals));
     } catch (err) {
-      console.error("fetchYdBalance error:", err);
-      setYdBalance("0");
+      console.error('fetchYdBalance error:', err);
+      setYdBalance('0');
     }
   }, [publicClient, address]);
 
@@ -49,7 +48,7 @@ const DashboardPage = () => {
     }
 
     const resetTimer = setTimeout(() => {
-      setYdBalance("0");
+      setYdBalance('0');
     }, 0);
     return () => clearTimeout(resetTimer);
   }, [isConnected, fetchYdBalance]);
@@ -60,9 +59,7 @@ const DashboardPage = () => {
         {/* 页面标题 */}
         <div className="space-y-1">
           <h1 className="text-xl font-semibold text-slate-900">资产概览</h1>
-          <p className="text-sm text-slate-500">
-            统一管理你的链上资产与平台代币。
-          </p>
+          <p className="text-sm text-slate-500">统一管理你的链上资产与平台代币。</p>
         </div>
 
         {/* 学习资金流向步骤条 */}

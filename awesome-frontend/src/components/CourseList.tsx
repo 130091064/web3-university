@@ -1,5 +1,4 @@
-import React from "react";
-import { CourseCard, type UICourse } from "./CourseCard";
+import { CourseCard, type UICourse } from './CourseCard';
 
 interface CourseListProps {
   courses: UICourse[];
@@ -9,13 +8,13 @@ interface CourseListProps {
   loading: boolean;
 }
 
-export const CourseList: React.FC<CourseListProps> = ({
+export const CourseList = ({
   courses,
   onBuy,
   buyingCourseId,
   disabled,
   loading,
-}) => {
+}: CourseListProps) => {
   const isEmpty = courses.length === 0;
 
   return (
@@ -23,9 +22,7 @@ export const CourseList: React.FC<CourseListProps> = ({
       <div className="mb-4 flex items-center justify-between">
         <div>
           <h2 className="text-base font-semibold text-slate-900">课程列表</h2>
-          <p className="mt-1 text-xs text-slate-500">
-            浏览当前上架的课程，用 YD 一键购买。
-          </p>
+          <p className="mt-1 text-xs text-slate-500">浏览当前上架的课程，用 YD 一键购买。</p>
         </div>
 
         {loading && (
@@ -50,9 +47,7 @@ export const CourseList: React.FC<CourseListProps> = ({
               key={course.id.toString()}
               course={course}
               onBuy={onBuy}
-              buying={
-                buyingCourseId !== undefined && buyingCourseId === course.id
-              }
+              buying={buyingCourseId !== undefined && buyingCourseId === course.id}
               disabled={disabled}
             />
           ))}

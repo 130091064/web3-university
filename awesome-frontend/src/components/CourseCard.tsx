@@ -1,6 +1,5 @@
-import React from "react";
-import { formatDateTime } from "@utils";
-import { formatUnits } from "viem";
+import { formatDateTime } from '@utils';
+import { formatUnits } from 'viem';
 
 export interface UICourse {
   id: bigint;
@@ -14,8 +13,7 @@ export interface UICourse {
   hasPurchased: boolean;
 }
 
-const shorten = (addr: string) =>
-  addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : "";
+const shorten = (addr: string) => (addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : '');
 
 interface CourseCardProps {
   course: UICourse;
@@ -24,48 +22,41 @@ interface CourseCardProps {
   disabled: boolean;
 }
 
-export const CourseCard: React.FC<CourseCardProps> = ({
-  course,
-  onBuy,
-  buying,
-  disabled,
-}) => {
-  const { id, author, price, metadataURI, isActive, studentCount, createdAt } =
-    course;
+export const CourseCard = ({ course, onBuy, buying, disabled }: CourseCardProps) => {
+  const { id, author, price, metadataURI, isActive, studentCount, createdAt } = course;
 
   const formattedPrice = formatUnits(price, 18);
   const createdAtText = formatDateTime(createdAt);
 
   // 顶部状态标签
-  let statusText = "";
-  let statusColor = "";
+  let statusText = '';
+  let statusColor = '';
 
   if (!isActive) {
-    statusText = "下架";
-    statusColor = "bg-slate-100 text-slate-500";
+    statusText = '下架';
+    statusColor = 'bg-slate-100 text-slate-500';
   } else if (course.isAuthor) {
-    statusText = "我的课程";
-    statusColor = "bg-amber-50 text-amber-700";
+    statusText = '我的课程';
+    statusColor = 'bg-amber-50 text-amber-700';
   } else if (course.hasPurchased) {
-    statusText = "已购买";
-    statusColor = "bg-emerald-50 text-emerald-700";
+    statusText = '已购买';
+    statusColor = 'bg-emerald-50 text-emerald-700';
   } else {
-    statusText = "上架中";
-    statusColor = "bg-sky-50 text-sky-700";
+    statusText = '上架中';
+    statusColor = 'bg-sky-50 text-sky-700';
   }
 
   // 按钮文案
-  let buttonLabel = "购买";
+  let buttonLabel = '购买';
   if (course.isAuthor) {
-    buttonLabel = "作者";
+    buttonLabel = '作者';
   } else if (course.hasPurchased) {
-    buttonLabel = "已购买";
+    buttonLabel = '已购买';
   }
 
-  const canBuy =
-    isActive && !course.isAuthor && !course.hasPurchased && !disabled;
+  const canBuy = isActive && !course.isAuthor && !course.hasPurchased && !disabled;
 
-  const trimmedMeta = (metadataURI || "").trim();
+  const trimmedMeta = (metadataURI || '').trim();
   const isUrl = /^https?:\/\//i.test(trimmedMeta);
 
   return (
@@ -88,21 +79,13 @@ export const CourseCard: React.FC<CourseCardProps> = ({
             <span className="font-mono text-slate-700">{shorten(author)}</span>
           </p>
 
-          {createdAtText && (
-            <p className="text-[11px] text-slate-500">
-              创建于：{createdAtText}
-            </p>
-          )}
+          {createdAtText && <p className="text-[11px] text-slate-500">创建于：{createdAtText}</p>}
         </div>
 
         <div className="shrink-0 text-right">
-          <div className="text-sm font-semibold text-slate-900">
-            {formattedPrice} YD
-          </div>
+          <div className="text-sm font-semibold text-slate-900">{formattedPrice} YD</div>
           {studentCount !== undefined && (
-            <div className="mt-1 text-xs text-slate-500">
-              已购 {studentCount.toString()} 人
-            </div>
+            <div className="mt-1 text-xs text-slate-500">已购 {studentCount.toString()} 人</div>
           )}
         </div>
       </div>
@@ -121,9 +104,7 @@ export const CourseCard: React.FC<CourseCardProps> = ({
                 课程链接：{trimmedMeta}
               </a>
             ) : (
-              <p className="line-clamp-2 text-xs text-slate-600">
-                {trimmedMeta}
-              </p>
+              <p className="line-clamp-2 text-xs text-slate-600">{trimmedMeta}</p>
             )
           ) : (
             <p className="text-xs text-slate-400">暂无课程简介</p>
@@ -131,11 +112,12 @@ export const CourseCard: React.FC<CourseCardProps> = ({
         </div>
 
         <button
+          type="button"
           disabled={!canBuy || buying}
           onClick={() => onBuy(id)}
           className="shrink-0 cursor-pointer rounded-xl bg-linear-to-r from-sky-500 to-indigo-500 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:brightness-110 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:bg-none disabled:text-slate-500"
         >
-          {buying ? "处理中..." : buttonLabel}
+          {buying ? '处理中...' : buttonLabel}
         </button>
       </div>
     </div>

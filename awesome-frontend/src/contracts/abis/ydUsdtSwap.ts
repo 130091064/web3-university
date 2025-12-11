@@ -223,4 +223,3 @@ export const ydUsdtSwapAbi = [
     type: 'function',
   },
 ] as const;
-

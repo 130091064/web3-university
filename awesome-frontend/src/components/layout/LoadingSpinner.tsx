@@ -12,12 +12,8 @@ const LoadingSpinner = () => {
         </div>
 
         {/* 文案区域 */}
-        <div className="text-sm font-medium text-slate-800">
-          正在加载学习空间…
-        </div>
-        <p className="text-xs text-slate-500 text-center">
-          正在同步账户与课程数据，请稍候。
-        </p>
+        <div className="text-sm font-medium text-slate-800">正在加载学习空间…</div>
+        <p className="text-xs text-slate-500 text-center">正在同步账户与课程数据，请稍候。</p>
 
         {/* Skeleton 提示区（让结构看起来更“完整”一点） */}
         <div className="mt-1 w-full space-y-2">

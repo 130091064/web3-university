@@ -220,4 +220,3 @@ export const ydSaleAbi = [
     type: 'function',
   },
 ] as const;
-

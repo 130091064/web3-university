@@ -405,4 +405,3 @@ export const mockUSDTAbi = [
     type: 'function',
   },
 ] as const;
-
