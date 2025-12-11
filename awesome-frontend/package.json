@@ -8,6 +8,7 @@
     "src/main.tsx",
     "src/index.css"
   ],
+  "packageManager": "yarn@1.22.22",
   "scripts": {
     "client:dev": "webpack --mode development",
     "client:prod": "webpack --mode production",
