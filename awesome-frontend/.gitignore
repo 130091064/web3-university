@@ -12,6 +12,19 @@ dist
 dist-ssr
 *.local
 
+# Test coverage and reports
+coverage/
+docs/jest-stare/
+
+# Browser drivers (binary executables)
+chromedriver
+chromedriver.exe
+
+# Cypress test artifacts
+cypress/screenshots/
+cypress/videos/
+cypress/downloads/
+
 # Editor directories and files
 !.vscode/extensions.json
 .idea

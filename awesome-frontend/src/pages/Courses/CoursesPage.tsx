@@ -1,7 +1,6 @@
-import type { UICourse } from '@components/CourseCard';
-import { CourseList } from '@components/CourseList';
-import { CreateCourseForm } from '@components/CreateCourseForm';
-import { LearningFlowBar } from '@components/LearningFlowBar';
+import { LearningFlowBar } from '@components/common/LearningFlowBar';
+import { CourseList } from '@components/course/CourseList';
+import { CreateCourseForm } from '@components/course/CreateCourseForm';
 import {
   COURSE_MARKETPLACE_ADDRESS,
   courseMarketplaceAbi,
@@ -9,6 +8,8 @@ import {
   ydTokenAbi,
 } from '@contracts';
 import { useCourses } from '@hooks/useCourses';
+import { useWaitForTransaction } from '@hooks/useWaitForTransaction';
+import type { UICourse } from '@types';
 import { useCallback, useEffect, useState } from 'react';
 import { parseUnits } from 'viem';
 import { useChainId, useConnection, usePublicClient, useWriteContract } from 'wagmi';
@@ -19,6 +20,7 @@ const CoursesPage = () => {
   const publicClient = usePublicClient();
   const { writeContractAsync } = useWriteContract();
   const chainId = useChainId();
+  const { waitForReceipt } = useWaitForTransaction();
 
   const [reloadKey, setReloadKey] = useState(0);
   const { courses, loading, error } = useCourses(reloadKey);
@@ -118,10 +120,7 @@ const CoursesPage = () => {
           args: [price, metadataURI],
         });
 
-        await publicClient.waitForTransactionReceipt({
-          hash,
-          confirmations: 1,
-        });
+        await waitForReceipt(hash);
 
         setReloadKey((k) => k + 1);
       } catch (err) {
@@ -130,7 +129,7 @@ const CoursesPage = () => {
         setCreating(false);
       }
     },
-    [isConnected, address, publicClient, writeContractAsync, isWrongNetwork],
+    [isConnected, address, publicClient, writeContractAsync, waitForReceipt, isWrongNetwork],
   );
 
   const handleBuyCourse = useCallback(
@@ -163,10 +162,7 @@ const CoursesPage = () => {
             args: [COURSE_MARKETPLACE_ADDRESS, price],
           });
 
-          await publicClient.waitForTransactionReceipt({
-            hash: approveHash,
-            confirmations: 1,
-          });
+          await waitForReceipt(approveHash);
         }
 
         const buyHash = await writeContractAsync({
@@ -176,10 +172,7 @@ const CoursesPage = () => {
           args: [courseId],
         });
 
-        await publicClient.waitForTransactionReceipt({
-          hash: buyHash,
-          confirmations: 1,
-        });
+        await waitForReceipt(buyHash);
 
         setReloadKey((k) => k + 1);
       } catch (err) {
@@ -188,7 +181,15 @@ const CoursesPage = () => {
         setBuyingCourseId(undefined);
       }
     },
-    [isConnected, address, publicClient, uiCourses, writeContractAsync, isWrongNetwork],
+    [
+      isConnected,
+      address,
+      publicClient,
+      uiCourses,
+      writeContractAsync,
+      waitForReceipt,
+      isWrongNetwork,
+    ],
   );
 
   useEffect(() => {

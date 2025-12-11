@@ -1,4 +1,5 @@
-import { CourseCard, type UICourse } from './CourseCard';
+import type { UICourse } from '@types';
+import { CourseCard } from './CourseCard';
 
 interface CourseListProps {
   courses: UICourse[];

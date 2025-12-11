@@ -3,6 +3,11 @@
   "version": "1.0.0",
   "main": "index.js",
   "license": "MIT",
+  "sideEffects": [
+    "*.css",
+    "src/main.tsx",
+    "src/index.css"
+  ],
   "scripts": {
     "client:dev": "webpack --mode development",
     "client:prod": "webpack --mode production",

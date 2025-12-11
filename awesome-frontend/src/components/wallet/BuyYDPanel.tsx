@@ -1,4 +1,5 @@
 import { YD_SALE_ADDRESS, ydSaleAbi } from '@contracts';
+import { useWaitForTransaction } from '@hooks/useWaitForTransaction';
 import { useCallback, useEffect, useState } from 'react';
 import { formatUnits, parseEther } from 'viem';
 import { useConnection, usePublicClient, useWriteContract } from 'wagmi';
@@ -11,6 +12,7 @@ const BuyYDPanel = ({ onBuySuccess }: BuyYDPanelProps) => {
   const { address, isConnected } = useConnection();
   const publicClient = usePublicClient();
   const { writeContractAsync } = useWriteContract();
+  const { waitForReceipt } = useWaitForTransaction();
 
   const [rate, setRate] = useState<bigint | null>(null);
   const [ethInput, setEthInput] = useState('');
@@ -70,10 +72,7 @@ const BuyYDPanel = ({ onBuySuccess }: BuyYDPanelProps) => {
         value,
       });
 
-      await publicClient.waitForTransactionReceipt({
-        hash,
-        confirmations: 1,
-      });
+      await waitForReceipt(hash);
 
       setEthInput('');
       onBuySuccess?.();

@@ -1,17 +1,6 @@
+import type { UICourse } from '@types';
 import { formatDateTime } from '@utils';
 import { formatUnits } from 'viem';
-
-export interface UICourse {
-  id: bigint;
-  author: `0x${string}`;
-  price: bigint;
-  metadataURI: string;
-  isActive: boolean;
-  studentCount?: bigint;
-  createdAt?: bigint;
-  isAuthor: boolean;
-  hasPurchased: boolean;
-}
 
 const shorten = (addr: string) => (addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : '');
 

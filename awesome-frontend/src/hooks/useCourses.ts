@@ -1,17 +1,7 @@
 import { COURSE_MARKETPLACE_ADDRESS, courseMarketplaceAbi } from '@contracts';
+import type { Course } from '@types';
 import { useCallback, useEffect, useState } from 'react';
-import type { Address } from 'viem';
 import { usePublicClient } from 'wagmi';
-
-export type Course = {
-  id: bigint;
-  author: Address;
-  price: bigint;
-  metadataURI: string;
-  isActive: boolean;
-  studentCount: bigint;
-  createdAt: bigint;
-};
 
 export function useCourses(reloadKey?: number) {
   const publicClient = usePublicClient();

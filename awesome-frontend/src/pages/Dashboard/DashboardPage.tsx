@@ -1,6 +1,6 @@
-import BuyYDPanel from '@components/BuyYDPanel';
-import { LearningFlowBar } from '@components/LearningFlowBar';
-import { WalletSection } from '@components/WalletSection';
+import { LearningFlowBar } from '@components/common/LearningFlowBar';
+import BuyYDPanel from '@components/wallet/BuyYDPanel';
+import { WalletSection } from '@components/wallet/WalletSection';
 import { YD_TOKEN_ADDRESS, ydTokenAbi } from '@contracts';
 import { useCallback, useEffect, useState } from 'react';
 import { formatUnits } from 'viem';

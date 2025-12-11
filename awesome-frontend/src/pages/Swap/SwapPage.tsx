@@ -1,5 +1,6 @@
-import { LearningFlowBar } from '@components/LearningFlowBar';
+import { LearningFlowBar } from '@components/common/LearningFlowBar';
 import { erc20Abi, YD_TOKEN_ADDRESS, YD_USDT_SWAP_ADDRESS, ydUsdtSwapAbi } from '@contracts';
+import { useWaitForTransaction } from '@hooks/useWaitForTransaction';
 import { useCallback, useEffect, useState } from 'react';
 import { formatUnits, parseUnits } from 'viem';
 import { useConnection, usePublicClient, useWriteContract } from 'wagmi';
@@ -8,6 +9,7 @@ const SwapPage = () => {
   const { address, isConnected } = useConnection();
   const publicClient = usePublicClient();
   const { writeContractAsync } = useWriteContract();
+  const { waitForReceipt } = useWaitForTransaction();
 
   const [ydBalance, setYdBalance] = useState<bigint>(0n);
   const [rate, setRate] = useState<bigint | null>(null);
@@ -80,10 +82,7 @@ const SwapPage = () => {
           functionName: 'approve',
           args: [YD_USDT_SWAP_ADDRESS, ydAmount],
         });
-        await publicClient.waitForTransactionReceipt({
-          hash: approveHash,
-          confirmations: 1,
-        });
+        await waitForReceipt(approveHash);
       }
 
       const swapHash = await writeContractAsync({
@@ -93,10 +92,7 @@ const SwapPage = () => {
         args: [ydAmount],
       });
 
-      await publicClient.waitForTransactionReceipt({
-        hash: swapHash,
-        confirmations: 1,
-      });
+      await waitForReceipt(swapHash);
 
       setInputYd('');
       await refresh();
