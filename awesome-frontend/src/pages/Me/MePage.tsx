@@ -125,21 +125,19 @@ const MePage = () => {
   const displayNickname = profile?.nickname || ensNameString || shortenAddress(address);
 
   return (
-    <section className="rounded-2xl bg-white/90 p-4 shadow-sm ring-1 ring-slate-100 sm:p-6">
-      <div className="space-y-6">
-        {/* ✅ 页面级主 / 副标题，跟其他页面统一 */}
-        <div>
-          <h1 className="text-xl font-semibold text-slate-900">我的账户</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            管理你的链上身份，并查看学习资产与课程记录。
-          </p>
-        </div>
+    <div className="space-y-6">
+      {/* 页面标题 */}
+      <div className="space-y-2 animate-slide-up">
+        <h1 className="text-3xl font-bold gradient-text">我的账户</h1>
+        <p className="text-slate-300">管理你的链上身份，并查看学习资产与课程记录</p>
+      </div>
 
-        {/* 顶部：账户 & 昵称 */}
-        <div className="rounded-3xl bg-slate-50/80 p-4 shadow-sm ring-1 ring-slate-100 sm:p-6">
+      {/* 顶部：账户 & 昵称 */}
+      <div className="animate-slide-up" style={{ animationDelay: '0.1s' }}>
+        <div className="rounded-2xl bg-white/5 backdrop-blur-md border border-white/20 p-6 shadow-2xl">
           {!isConnected ? (
-            <div className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
-              请先在页面顶部连接钱包，再进入用户中心。
+            <div className="rounded-xl bg-amber-500/10 border border-amber-500/30 backdrop-blur-sm px-4 py-3">
+              <p className="text-sm text-amber-300">请先在页面顶部连接钱包，再进入用户中心</p>
             </div>
           ) : (
             <div className="space-y-6">
@@ -175,27 +173,32 @@ const MePage = () => {
         </div>
 
         {/* 已购课程 */}
-        <div className="rounded-3xl bg-slate-50/80 p-4 shadow-sm ring-1 ring-slate-100 sm:p-6">
-          <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
-            <div>
-              <p className="text-base font-semibold text-slate-900 sm:text-lg">已购课程</p>
-              <p className="mt-1 text-sm text-slate-500">
-                基于链上记录展示当前地址已购买 / 创建的课程。
-              </p>
+        <div className="animate-slide-up" style={{ animationDelay: '0.2s' }}>
+          <div className="rounded-2xl bg-white/5 backdrop-blur-md border border-white/20 p-6 shadow-2xl">
+            <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
+              <div>
+                <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                  <span className="inline-block w-1.5 h-5 bg-gradient-to-b from-cyan-500 to-blue-500 rounded-full"></span>
+                  已购课程
+                </h2>
+                <p className="mt-1 text-sm text-slate-300">
+                  基于链上记录展示当前地址已购买 / 创建的课程
+                </p>
+              </div>
             </div>
-          </div>
 
-          <PurchasedCoursesList
-            courses={myCourses}
-            userAddress={address}
-            isLoading={isCoursesLoading || isPurchasedLoading}
-            error={friendlyCourseError}
-            isConnected={isConnected}
-            isWrongNetwork={isWrongNetwork}
-          />
+            <PurchasedCoursesList
+              courses={myCourses}
+              userAddress={address}
+              isLoading={isCoursesLoading || isPurchasedLoading}
+              error={friendlyCourseError}
+              isConnected={isConnected}
+              isWrongNetwork={isWrongNetwork}
+            />
+          </div>
         </div>
       </div>
-    </section>
+    </div>
   );
 };
 

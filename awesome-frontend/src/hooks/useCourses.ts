@@ -3,15 +3,18 @@ import type { Course } from '@types';
 import { useCallback, useEffect, useState } from 'react';
 import { usePublicClient } from 'wagmi';
 
-export function useCourses(reloadKey?: number) {
+export function useCourses(reloadKey?: number, enabled = true) {
   const publicClient = usePublicClient();
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // ⭐ load 不依赖 reloadKey，只依赖 publicClient
+  // ⭐ load 不依赖 reloadKey，只依赖 publicClient 和 enabled
   const load = useCallback(async () => {
-    if (!publicClient) return;
+    if (!publicClient || !enabled) {
+      setCourses([]);
+      return;
+    }
 
     try {
       setLoading(true);
@@ -45,7 +48,7 @@ export function useCourses(reloadKey?: number) {
     } finally {
       setLoading(false);
     }
-  }, [publicClient]);
+  }, [publicClient, enabled]);
 
   // ⭐ 1) publicClient 变化 → 加载课程（首次加载也在这里）
   useEffect(() => {

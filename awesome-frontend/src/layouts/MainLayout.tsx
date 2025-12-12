@@ -26,25 +26,42 @@ const MainLayout = () => {
     return () => clearTimeout(timer);
   }, [booting]);
   return (
-    <div className="flex min-h-screen flex-col bg-slate-50 text-slate-800">
-      {/* 全局启动遮罩：只在第一次挂载时出现 */}
+    <div className="relative flex min-h-screen flex-col overflow-hidden bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 text-slate-100">
+      {/* 动态网格背景 */}
+      <div className="fixed inset-0 grid-bg opacity-30" />
+
+      {/* 渐变光效背景 */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-1/2 -left-1/4 w-96 h-96 bg-blue-500/20 rounded-full blur-3xl animate-float" />
+        <div
+          className="absolute -bottom-1/2 -right-1/4 w-96 h-96 bg-violet-500/20 rounded-full blur-3xl animate-float"
+          style={{ animationDelay: '3s' }}
+        />
+        <div
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl animate-float"
+          style={{ animationDelay: '1.5s' }}
+        />
+      </div>
+
+      {/* 全局启动遮罩 */}
       {booting && <FullScreenLoader />}
 
-      {/* 顶部全局头部（含主导航） */}
+      {/* 顶部导航 */}
       <Header />
 
-      {/* 主体区域：只保留内容区，居中 + 限宽 */}
-      <div className="flex flex-1">
-        <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
-          {/* 统一卡片背景基调 */}
-          <div className="h-full space-y-6">
+      {/* 主体内容区 */}
+      <div className="relative flex flex-1 z-10">
+        <main className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+          <div className="h-full space-y-6 animate-fade-in">
             <Suspense fallback={booting ? null : <LoadingSpinner />}>
-              {/* booting 时其实也可以不渲染 Outlet，但保持简单即可 */}
               <Outlet />
             </Suspense>
           </div>
         </main>
       </div>
+
+      {/* 页脚装饰线 */}
+      <div className="relative z-10 h-1 bg-gradient-to-r from-transparent via-blue-500 to-transparent" />
     </div>
   );
 };

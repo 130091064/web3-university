@@ -1,1 +1,60 @@
 @import "tailwindcss";
+
+/* 全局样式 */
+* {
+  @apply scroll-smooth;
+}
+
+body {
+  @apply antialiased;
+}
+
+/* 自定义滚动条 - 科技感 */
+::-webkit-scrollbar {
+  @apply w-2;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-slate-900/20;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-gradient-to-b from-blue-500 to-violet-500 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply from-blue-600 to-violet-600;
+}
+
+/* 科技网格背景动画 */
+.grid-bg {
+  background-image: 
+    linear-gradient(to right, rgba(59, 130, 246, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(139, 92, 246, 0.05) 1px, transparent 1px);
+  background-size: 40px 40px;
+  animation: grid-move 20s linear infinite;
+}
+
+@keyframes grid-move {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 40px 40px;
+  }
+}
+
+/* 渐变文字效果 */
+.gradient-text {
+  @apply bg-gradient-to-r from-blue-500 via-violet-500 to-cyan-500 bg-clip-text text-transparent;
+}
+
+/* 发光效果 */
+.glow-effect {
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.3), 0 0 40px rgba(139, 92, 246, 0.2);
+}
+
+/* 卡片悬浮效果 */
+.card-hover {
+  @apply transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl hover:shadow-blue-500/20;
+}

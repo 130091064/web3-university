@@ -1,4 +1,5 @@
 import { LearningFlowBar } from '@components/common/LearningFlowBar';
+import { useToast } from '@components/common/Toast';
 import { CourseList } from '@components/course/CourseList';
 import { CreateCourseForm } from '@components/course/CreateCourseForm';
 import {
@@ -10,6 +11,7 @@ import {
 import { useCourses } from '@hooks/useCourses';
 import { useWaitForTransaction } from '@hooks/useWaitForTransaction';
 import type { UICourse } from '@types';
+import { formatErrorMessage, isUserRejected } from '@utils/errorHandler';
 import { useCallback, useEffect, useState } from 'react';
 import { parseUnits } from 'viem';
 import { useChainId, useConnection, usePublicClient, useWriteContract } from 'wagmi';
@@ -21,9 +23,11 @@ const CoursesPage = () => {
   const { writeContractAsync } = useWriteContract();
   const chainId = useChainId();
   const { waitForReceipt } = useWaitForTransaction();
+  const { showSuccess, showError, showWarning, ToastComponent } = useToast();
 
   const [reloadKey, setReloadKey] = useState(0);
-  const { courses, loading, error } = useCourses(reloadKey);
+  // 只有在连接钱包时才加载课程
+  const { courses, loading, error } = useCourses(reloadKey, isConnected);
   const [uiCourses, setUiCourses] = useState<UICourse[]>([]);
   const [creating, setCreating] = useState(false);
   const [buyingCourseId, setBuyingCourseId] = useState<bigint | undefined>();
@@ -33,6 +37,12 @@ const CoursesPage = () => {
   const isWrongNetwork = isConnected && !isOnSepolia;
 
   useEffect(() => {
+    // 如果未连接钱包，直接清空UI课程列表
+    if (!isConnected) {
+      setUiCourses([]);
+      return;
+    }
+
     if (!publicClient || !courses.length) {
       setUiCourses(
         courses.map((c) => ({
@@ -97,7 +107,7 @@ const CoursesPage = () => {
     };
 
     loadStates();
-  }, [publicClient, courses, address]);
+  }, [publicClient, courses, address, isConnected]);
 
   const handleCreateCourse = useCallback(
     async (priceStr: string, metadataURI: string) => {
@@ -122,14 +132,30 @@ const CoursesPage = () => {
 
         await waitForReceipt(hash);
 
+        showSuccess('课程创建成功！');
         setReloadKey((k) => k + 1);
       } catch (err) {
         console.error('createCourse error:', err);
+        if (isUserRejected(err)) {
+          showWarning(formatErrorMessage(err));
+        } else {
+          showError(`创建失败：${formatErrorMessage(err)}`);
+        }
       } finally {
         setCreating(false);
       }
     },
-    [isConnected, address, publicClient, writeContractAsync, waitForReceipt, isWrongNetwork],
+    [
+      isConnected,
+      address,
+      publicClient,
+      writeContractAsync,
+      waitForReceipt,
+      isWrongNetwork,
+      showSuccess,
+      showError,
+      showWarning,
+    ],
   );
 
   const handleBuyCourse = useCallback(
@@ -174,9 +200,15 @@ const CoursesPage = () => {
 
         await waitForReceipt(buyHash);
 
+        showSuccess(`成功购买课程！`);
         setReloadKey((k) => k + 1);
       } catch (err) {
         console.error('buyCourse error:', err);
+        if (isUserRejected(err)) {
+          showWarning(formatErrorMessage(err));
+        } else {
+          showError(`购买失败：${formatErrorMessage(err)}`);
+        }
       } finally {
         setBuyingCourseId(undefined);
       }
@@ -189,6 +221,9 @@ const CoursesPage = () => {
       writeContractAsync,
       waitForReceipt,
       isWrongNetwork,
+      showSuccess,
+      showError,
+      showWarning,
     ],
   );
 
@@ -196,6 +231,7 @@ const CoursesPage = () => {
     if (isConnected) {
       setReloadKey((k) => k + 1);
     } else {
+      // 断开连接时清空课程列表
       setUiCourses([]);
     }
   }, [isConnected]);
@@ -213,24 +249,28 @@ const CoursesPage = () => {
   }
 
   return (
-    <section className="rounded-2xl bg-white/90 p-4 shadow-sm ring-1 ring-slate-100 sm:p-6">
-      <div className="space-y-6">
-        {/* 页面标题 */}
-        <div className="space-y-1">
-          <h1 className="text-xl font-semibold text-slate-900">课程市场</h1>
-          <p className="text-sm text-slate-500">基于区块链的课程发布与购买平台。</p>
-        </div>
+    <div className="space-y-6">
+      {/* 页面标题 */}
+      <div className="space-y-2 animate-slide-up">
+        <h1 className="text-3xl font-bold gradient-text">课程市场</h1>
+        <p className="text-slate-300">基于区块链的课程发布与购买平台</p>
+      </div>
 
+      <div className="animate-slide-up" style={{ animationDelay: '0.1s' }}>
         <LearningFlowBar currentStep={3} />
+      </div>
 
-        {/* 创建课程表单 */}
+      {/* 创建课程表单 */}
+      <div className="animate-slide-up" style={{ animationDelay: '0.2s' }}>
         <CreateCourseForm
           onCreate={handleCreateCourse}
           isCreating={creating}
           disabled={!isConnected || isWrongNetwork}
         />
+      </div>
 
-        {/* 课程列表 */}
+      {/* 课程列表 */}
+      <div className="animate-slide-up" style={{ animationDelay: '0.3s' }}>
         <CourseList
           courses={uiCourses}
           onBuy={handleBuyCourse}
@@ -238,15 +278,18 @@ const CoursesPage = () => {
           disabled={!isConnected || isWrongNetwork}
           loading={loading}
         />
-
-        {/* 友好错误提示 */}
-        {friendlyError && (
-          <p className="mt-6 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
-            {friendlyError}
-          </p>
-        )}
       </div>
-    </section>
+
+      {/* 友好错误提示 */}
+      {friendlyError && (
+        <div className="rounded-xl bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/30 backdrop-blur-sm px-4 py-3 animate-slide-up">
+          <p className="text-sm text-amber-300">{friendlyError}</p>
+        </div>
+      )}
+
+      {/* Toast通知 */}
+      <ToastComponent />
+    </div>
   );
 };
 

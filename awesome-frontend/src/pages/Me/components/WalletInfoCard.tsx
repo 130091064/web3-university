@@ -25,45 +25,50 @@ export const WalletInfoCard = ({
   remoteError,
 }: WalletInfoCardProps) => {
   return (
-    <div className="rounded-2xl border border-slate-100 bg-white/90 p-4 shadow-sm">
-      <p className="text-sm font-medium text-slate-700">钱包信息</p>
+    <div className="rounded-xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-sm border border-white/20 p-5 transition-all hover:border-blue-400/50 hover:shadow-lg hover:shadow-blue-500/20">
+      <p className="text-sm font-semibold text-white flex items-center gap-2">
+        <span className="text-base">💼</span>
+        钱包信息
+      </p>
 
-      <div className="mt-3 flex items-center gap-3">
+      <div className="mt-4 flex items-center gap-3">
         {ensAvatar && (
           <img
             src={ensAvatar}
             alt="ENS Avatar"
-            className="h-10 w-10 rounded-full border border-slate-200 object-cover"
+            className="h-12 w-12 rounded-full border-2 border-cyan-400/50 object-cover shadow-lg"
           />
         )}
 
-        <div className="space-y-1 text-sm text-slate-700">
-          <div>
-            <span className="text-slate-500">当前地址：</span>
-            <span className="font-mono">{shortenAddress(address)}</span>
+        <div className="space-y-1.5 text-sm">
+          <div className="flex items-center gap-2">
+            <span className="text-slate-400">当前地址：</span>
+            <span className="font-mono text-cyan-400">{shortenAddress(address)}</span>
           </div>
           {ensName && (
-            <div>
-              <span className="text-slate-500">ENS：</span>
-              <span>{ensName}</span>
+            <div className="flex items-center gap-2">
+              <span className="text-slate-400">ENS：</span>
+              <span className="text-blue-400">{ensName}</span>
             </div>
           )}
-          <div>
-            <span className="text-slate-500">当前网络：</span>
-            <span>ChainId {chainId}</span>
+          <div className="flex items-center gap-2">
+            <span className="text-slate-400">当前网络：</span>
+            <span className="text-slate-300">ChainId {chainId}</span>
           </div>
-          <div>
-            <span className="text-slate-500">当前昵称：</span>
-            <span className="font-medium">{displayNickname}</span>
+          <div className="flex items-center gap-2">
+            <span className="text-slate-400">当前昵称：</span>
+            <span className="font-medium text-white">{displayNickname}</span>
           </div>
           {profileUpdatedAt && (
-            <div>
-              <span className="text-slate-500">最近签名：</span>
-              <span>{new Date(profileUpdatedAt).toLocaleString()}</span>
+            <div className="flex items-center gap-2">
+              <span className="text-slate-400">最近签名：</span>
+              <span className="text-slate-300 text-xs">
+                {new Date(profileUpdatedAt).toLocaleString()}
+              </span>
             </div>
           )}
           {isLoadingProfile && <p className="pt-1 text-xs text-slate-400">正在加载昵称信息…</p>}
-          {remoteError && <p className="pt-1 text-xs text-amber-600">{remoteError}</p>}
+          {remoteError && <p className="pt-1 text-xs text-amber-400">{remoteError}</p>}
         </div>
       </div>
     </div>

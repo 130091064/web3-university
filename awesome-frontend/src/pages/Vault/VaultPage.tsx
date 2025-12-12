@@ -1,8 +1,13 @@
+import { useConfirmDialog } from '@components/common/ConfirmDialog';
 import { LearningFlowBar } from '@components/common/LearningFlowBar';
+import { useToast } from '@components/common/Toast';
+import TransactionHistory from '@components/common/TransactionHistory';
 import { AAVE_VAULT_ADDRESS, aaveVaultAbi, MOCK_USDT_ADDRESS, mockUSDTAbi } from '@contracts';
+import { useAutoRefresh } from '@hooks/useAutoRefresh';
+import { useTransactionHistory } from '@hooks/useTransactionHistory';
 import { useVaultAssets } from '@hooks/useVaultAssets';
 import { useWalletStatus } from '@hooks/useWalletStatus';
-import { formatTokenAmount } from '@utils';
+import { formatErrorMessage, isUserRejected } from '@utils/errorHandler';
 import { useState } from 'react';
 import { parseUnits } from 'viem';
 import { useWriteContract } from 'wagmi';
@@ -11,10 +16,13 @@ import { VaultStats } from './components/VaultStats';
 import { WithdrawForm } from './components/WithdrawForm';
 
 const VaultPage = () => {
-  const { address, isConnected } = useWalletStatus();
+  const { address, isConnected, isWrongNetwork } = useWalletStatus();
   const { writeContractAsync, isPending } = useWriteContract();
+  const { showSuccess, showError, showWarning, ToastComponent } = useToast();
+  const { confirm, DialogComponent } = useConfirmDialog();
+  const { transactions, addTransaction, updateTransaction, clearHistory } =
+    useTransactionHistory(address);
 
-  const [txStatus, setTxStatus] = useState<string | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   // 使用 useVaultAssets Hook 获取资产数据
@@ -28,31 +36,53 @@ const VaultPage = () => {
     decimals,
   } = useVaultAssets(address, isConnected);
 
-  const userUsdtDisplay = formatTokenAmount(userUsdtBalance, decimals);
-  const userVaultDisplay = formatTokenAmount(userVaultBalance, decimals);
+  // 自动刷新（每30秒）
+  const manualRefresh = useAutoRefresh(refresh, {
+    enabled: isConnected && !isWrongNetwork,
+    interval: 30000,
+  });
 
   async function handleDeposit(depositAmount: string) {
     if (!address) {
-      setTxStatus('请先连接钱包');
+      showWarning('请先连接钱包');
       return;
     }
     if (!depositAmount) {
-      setTxStatus('请输入存入金额');
+      showWarning('请输入存入金额');
       return;
     }
+    if (isWrongNetwork) {
+      showError('当前网络暂不支持存入，请切换到 Sepolia Testnet 后再试。');
+      return;
+    }
+
+    // 确认弹窗
+    const confirmed = await confirm(
+      '确认存入',
+      `您将存入 ${depositAmount} USDT 到理财金库，确认继续？`,
+      'info',
+    );
+    if (!confirmed) return;
+
+    // 添加待处理交易记录
+    const txId = addTransaction({
+      type: 'deposit',
+      amount: depositAmount,
+      token: 'USDT',
+      status: 'pending',
+      details: '存入理财金库',
+    });
 
     try {
       const parsed = parseUnits(depositAmount, decimals);
 
-      setTxStatus('正在授权 USDT（approve）...');
-      await writeContractAsync({
+      const hash = await writeContractAsync({
         address: MOCK_USDT_ADDRESS,
         abi: mockUSDTAbi,
         functionName: 'approve',
         args: [AAVE_VAULT_ADDRESS, parsed],
       });
 
-      setTxStatus('正在发送存入交易（deposit）...');
       await writeContractAsync({
         address: AAVE_VAULT_ADDRESS,
         abi: aaveVaultAbi,
@@ -60,81 +90,157 @@ const VaultPage = () => {
         args: [parsed],
       });
 
-      setTxStatus('存入成功');
+      // 更新交易为成功
+      updateTransaction(txId, {
+        status: 'success',
+        txHash: hash,
+      });
+
+      showSuccess(`成功存入 ${depositAmount} USDT`);
       await refresh();
     } catch (err) {
       console.error(err);
-      const message = err instanceof Error ? err.message : '存入失败';
-      setTxStatus(`存入失败：${message}`);
+
+      // 如果是用户取消，不记录为失败
+      if (isUserRejected(err)) {
+        updateTransaction(txId, {
+          status: 'failed',
+        });
+        showWarning(formatErrorMessage(err));
+        return;
+      }
+
+      // 更新交易为失败
+      updateTransaction(txId, {
+        status: 'failed',
+      });
+
+      showError(`存入失败：${formatErrorMessage(err)}`);
     }
   }
 
   async function handleWithdraw(withdrawAmount: string) {
     if (!address) {
-      setTxStatus('请先连接钱包');
+      showWarning('请先连接钱包');
       return;
     }
     if (!withdrawAmount) {
-      setTxStatus('请输入取出金额');
+      showWarning('请输入取出金额');
       return;
     }
+    if (isWrongNetwork) {
+      showError('当前网络暂不支持取出，请切换到 Sepolia Testnet 后再试。');
+      return;
+    }
+
+    // 确认弹窗
+    const confirmed = await confirm(
+      '确认取出',
+      `您将从金库取出 ${withdrawAmount} USDT，确认继续？`,
+      'warning',
+    );
+    if (!confirmed) return;
+
+    // 添加待处理交易记录
+    const txId = addTransaction({
+      type: 'withdraw',
+      amount: withdrawAmount,
+      token: 'USDT',
+      status: 'pending',
+      details: '从理财金库取出',
+    });
 
     try {
       const parsed = parseUnits(withdrawAmount, decimals);
 
-      setTxStatus('正在发送取出交易（withdraw）...');
-      await writeContractAsync({
+      const hash = await writeContractAsync({
         address: AAVE_VAULT_ADDRESS,
         abi: aaveVaultAbi,
         functionName: 'withdraw',
         args: [parsed],
       });
 
-      setTxStatus('取出成功');
+      // 更新交易为成功
+      updateTransaction(txId, {
+        status: 'success',
+        txHash: hash,
+      });
+
+      showSuccess(`成功取出 ${withdrawAmount} USDT`);
       await refresh();
     } catch (err) {
       console.error(err);
-      const message = err instanceof Error ? err.message : '取出失败';
-      setTxStatus(`取出失败：${message}`);
+
+      // 如果是用户取消，不记录为失败
+      if (isUserRejected(err)) {
+        updateTransaction(txId, {
+          status: 'failed',
+        });
+        showWarning(formatErrorMessage(err));
+        return;
+      }
+
+      // 更新交易为失败
+      updateTransaction(txId, {
+        status: 'failed',
+      });
+
+      showError(`取出失败：${formatErrorMessage(err)}`);
     }
   }
 
   return (
-    <section className="rounded-2xl bg-white/90 p-4 shadow-sm ring-1 ring-slate-100 sm:p-6">
-      <div className="space-y-4">
-        {/* ✅ 页面级主 / 副标题 */}
-        <div>
-          <h1 className="text-xl font-semibold text-slate-900">理财金库</h1>
-          <p className="mt-1 text-sm text-slate-500">将 USDT 存入金库，按链上利率自动生息。</p>
-        </div>
+    <div className="space-y-6">
+      {/* 页面标题 */}
+      <div className="space-y-2 animate-slide-up">
+        <h1 className="text-3xl font-bold gradient-text">理财金库</h1>
+        <p className="text-slate-300">将 USDT 存入金库，按链上利率自动生息</p>
+      </div>
 
+      <div className="animate-slide-up" style={{ animationDelay: '0.1s' }}>
         <LearningFlowBar currentStep={5} />
+      </div>
 
-        {/* ✅ 原有卡片结构保持不变 */}
-        <section className="rounded-2xl bg-slate-50/80 p-4 shadow-sm ring-1 ring-slate-100 sm:p-6">
+      {/* 主内容区 */}
+      <div className="animate-slide-up" style={{ animationDelay: '0.2s' }}>
+        <section className="rounded-2xl bg-white/5 backdrop-blur-md border border-white/20 p-6 shadow-2xl">
           {/* 标题 + 简介 + 刷新 */}
-          <div className="mb-4 flex items-start justify-between gap-3">
+          <div className="mb-6 flex items-start justify-between gap-3">
             <div>
-              <h2 className="text-base sm:text-lg font-semibold text-slate-900">USDT 理财金库</h2>
-              <p className="mt-1 text-sm text-slate-500">
-                将 USDT 存入金库，按链上利率自动计息，可随时取出。
+              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                <span className="inline-block w-1.5 h-5 bg-gradient-to-b from-purple-500 to-pink-500 rounded-full"></span>
+                USDT 理财金库
+              </h2>
+              <p className="mt-1 text-sm text-slate-300">
+                将 USDT 存入金库，按链上利率自动计息，可随时取出
               </p>
             </div>
             {isConnected && (
               <button
-                onClick={refresh}
+                onClick={manualRefresh}
                 type="button"
-                className="inline-flex items-center cursor-pointer rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 shadow-sm hover:bg-slate-50 active:scale-[0.98]"
+                className="inline-flex items-center cursor-pointer rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 px-4 py-2 text-xs font-medium text-slate-300 transition hover:bg-white/15 hover:text-white hover:border-purple-400/50 active:scale-95"
               >
-                刷新资产
+                🔄 刷新资产
               </button>
             )}
           </div>
 
           {/* 未连接提示 */}
           {!isConnected && (
-            <div className="mb-4 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-700">
-              当前未连接钱包，连接后可查看金库资产并进行存取操作。
+            <div className="mb-5 rounded-xl bg-amber-500/10 border border-amber-500/30 backdrop-blur-sm px-4 py-3">
+              <p className="text-sm text-amber-300">
+                当前未连接钱包，连接后可查看金库资产并进行存取操作
+              </p>
+            </div>
+          )}
+
+          {/* 网络错误提示 */}
+          {isConnected && isWrongNetwork && (
+            <div className="mb-5 rounded-xl bg-red-500/10 border border-red-500/30 backdrop-blur-sm px-4 py-3">
+              <p className="text-sm text-red-300">
+                ⚠️ 当前网络暂不支持理财金库功能，请在顶部切换到 Sepolia Testnet 后再试。
+              </p>
             </div>
           )}
 
@@ -157,26 +263,32 @@ const VaultPage = () => {
               onDeposit={handleDeposit}
               isPending={isPending}
               isConnected={isConnected}
-              userUsdtBalance={userUsdtDisplay}
+              userUsdtBalance={userUsdtBalance ?? 0n}
+              decimals={decimals}
             />
 
             <WithdrawForm
               onWithdraw={handleWithdraw}
               isPending={isPending}
               isConnected={isConnected}
-              userVaultBalance={userVaultDisplay}
+              userVaultBalance={userVaultBalance ?? 0n}
+              decimals={decimals}
             />
           </div>
 
-          {/* 交易状态条 */}
-          {txStatus && (
-            <div className="mt-4 rounded-xl bg-slate-900/90 px-3 py-2 text-xs text-slate-50">
-              {txStatus}
+          {/* 交易历史 */}
+          {isConnected && transactions.length > 0 && (
+            <div className="mt-4">
+              <TransactionHistory transactions={transactions} onClear={clearHistory} />
             </div>
           )}
+
+          {/* Toast & Dialog */}
+          <ToastComponent />
+          <DialogComponent />
         </section>
       </div>
-    </section>
+    </div>
   );
 };
 
